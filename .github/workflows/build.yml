@@ -44,11 +44,11 @@ jobs:
           print("Python meclisi OK", fs.info())
           PY
 
-      - name: APK derle
+      - name: Overlay testleri ve APK derle
         run: |
           chmod +x gradlew
           set -o pipefail
-          ./gradlew --no-daemon assembleDebug 2>&1 | tee build.log
+          ./gradlew --no-daemon testDebugUnitTest assembleDebug 2>&1 | tee build.log
 
       - name: Hata özeti (annotation)
         if: failure()
@@ -61,6 +61,16 @@ jobs:
               chunk='%0A'.join(l.replace('%','%25').replace('\r','') for l in lines[i:i+30])
               print('::error title=build-log-%d::%s' % (i//30, chunk))
           PY
+
+      - name: Test raporları
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: overlay-test-reports
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+          if-no-files-found: ignore
 
       - name: APK adını düzenle
         run: |
