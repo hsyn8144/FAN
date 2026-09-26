@@ -98,7 +98,15 @@ class FanEngine(var cfg: EngineConfig, private var python: ExternalCouncil?) {
         val KOTLIN_IDS = listOf("kalip2", "ctw", "ppm", "freqgap", "streak", "regime", "gru", "esn")
     }
 
-    fun setPython(p: ExternalCouncil?) { python = p }
+    /**
+     * Python geri alması başarısız olduğunda Kotlin tarafı yine de anında döner; bu bayrak
+     * Python'un geride kaldığını işaretler ve bir sonraki eklemede onu yeniden öğreniriz.
+     * Böylece iki meclis asla farklı adımda kalmaz (veri bozulmaz).
+     */
+    var pyDirty = false
+        private set
+
+    fun setPython(p: ExternalCouncil?) { python = p; pyDirty = false }
     fun hasPython() = python != null
 
     private fun hist(n: Int) = History(values.toIntArray(), times.toLongArray(), n)
@@ -106,6 +114,7 @@ class FanEngine(var cfg: EngineConfig, private var python: ExternalCouncil?) {
     /** Python'u baştan öğretir (ağır). */
     fun replayPython() {
         val py = python
+        pyDirty = false
         pHist.clear()
         undoStack.clear()   // Python geçmişi değişti: eski geri alma kayıtları geçersiz
         if (py == null) { repeat(values.size) { pHist.add(null) }; pNext = null; return }
@@ -168,6 +177,8 @@ class FanEngine(var cfg: EngineConfig, private var python: ExternalCouncil?) {
 
     /** Yeni kayıt (0..3). */
     fun add(v: Int, t: Long) {
+        // Python bir önceki geri almada eşitlenemediyse önce onu tam öğren (nadir, ama şart).
+        if (pyDirty) { replayPython(); verdict = referee.decide(kNext, pNext) }
         val vd = verdict ?: referee.decide(kNext, pNext)
         val i = values.size
         val rec = pushUndo(i, kNext, vd)     // bu adımın geri alma kaydı
@@ -209,6 +220,8 @@ class FanEngine(var cfg: EngineConfig, private var python: ExternalCouncil?) {
             lastSideHit = rec.hit
             kNext = rec.next.copyOf()
             pNext = back ?: pPrev
+            // Python geri alınamadıysa hedefi kaçtı: bir sonraki eklemede yeniden öğrenilecek.
+            if (py != null && back == null) pyDirty = true
             verdict = referee.decide(kNext, pNext)
             lastUndoFast = true
             lastUndoMs = (System.nanoTime() - t0) / 1_000_000L

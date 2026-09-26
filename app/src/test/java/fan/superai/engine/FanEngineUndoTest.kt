@@ -22,6 +22,7 @@ class FanEngineUndoTest {
         val values = ArrayList<Int>()
         val targets = ArrayList<Int>()
         var undoCalls = 0
+        var replayCalls = 0
         var failUndo = false
 
         private fun dist(): DoubleArray {
@@ -36,6 +37,7 @@ class FanEngineUndoTest {
         }
 
         override fun replay(values: IntArray, times: LongArray): Pair<List<DoubleArray>, DoubleArray> {
+            replayCalls++
             this.values.clear()
             val per = ArrayList<DoubleArray>()
             for (i in values.indices) { per.add(dist()); this.values.add(values[i]) }
@@ -223,9 +225,32 @@ class FanEngineUndoTest {
         val e = build(n, py, vals)
         e.add(2, 1700000000L + n)
         assertTrue(e.undo())
-        assertFalse("python başarısız → tam yeniden kurma", e.lastUndoFast)
-        assertEquals(n - 1, e.values.size)
-        assertSameState(build(n - 1, FakePython(), vals.copyOf(n - 1)), e, "python hatasında geri alma")
+
+        // Python geri alamadı ama KOTLIN meclisi yine anında ve TAM döndü; ekranda o adımda
+        // hesaplanmış Python tahmini kalır (yani kullanıcı hiç beklemez, veri bozulmaz).
+        assertTrue("kotlin tarafı hızlı yoldan dönmeli", e.lastUndoFast)
+        assertTrue("python geride kaldı işaretlenmeli", e.pyDirty)
+        assertEquals(n, e.values.size)
+        assertSameState(build(n, FakePython(), vals), e, "python hatasında geri alma")
+
+        // Bir sonraki ekleme Python'u baştan öğrenip iki meclisi aynı adımda buluşturur.
+        py.failUndo = false
+        e.add(1, 1700000000L + n)
+        assertTrue("python yeniden öğrenilmeli", py.replayCalls > 0)
+        assertFalse(e.pyDirty)
+        assertEquals("iki meclis aynı adımda olmalı", e.values.size, py.values.size)
+        assertSameState(build(n + 1, FakePython(), vals + intArrayOf(1)), e, "python eşitlendikten sonra")
+    }
+
+    @Test
+    fun withoutPythonUndoIsStillExact() {
+        val n = 60
+        val vals = data(n, 13)
+        val e = build(n, null, vals)          // Python meclisi hiç yok
+        e.add(3, 1700000000L + n)
+        assertTrue(e.undo())
+        assertEquals(n, e.values.size)
+        assertSameState(build(n, null, vals), e, "python'suz geri alma")
     }
 
     @Test
