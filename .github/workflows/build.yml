@@ -60,6 +60,8 @@ jobs:
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
               for path in glob.glob('app/build/test-results/testDebugUnitTest/TEST-*.xml'):
                   suite = ET.parse(path).getroot()
+                  print('::notice title=Overlay test results::Tests: %s; failures: %s; errors: %s' % (
+                      suite.get('tests'), suite.get('failures'), suite.get('errors')))
                   summary.write('### %s\nTests: %s · Failures: %s · Errors: %s\n' % (
                       suite.get('name'), suite.get('tests'), suite.get('failures'), suite.get('errors')))
                   for case in suite.findall('testcase'):

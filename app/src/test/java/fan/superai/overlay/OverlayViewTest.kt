@@ -1,5 +1,6 @@
 package fan.superai.overlay
 
+import android.app.Activity
 import android.app.Application
 import android.os.Looper
 import android.os.SystemClock
@@ -9,9 +10,11 @@ import android.view.ViewConfiguration
 import android.view.ViewGroup
 import android.widget.TextView
 import fan.superai.data.AppSettings
+import org.junit.After
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
 import org.robolectric.Shadows.shadowOf
@@ -26,6 +29,11 @@ class OverlayViewTest {
     private val drags = mutableListOf<Pair<Int, Int>>()
     private val numbers = mutableListOf<Int>()
     private var deletes = 0
+    private val activity = Robolectric.buildActivity(Activity::class.java).setup().visible()
+
+    @After fun tearDown() {
+        activity.pause().stop().destroy()
+    }
 
     private fun overlay(horizontal: Boolean = false, recent: Boolean = true, detail: Boolean = true): OverlayView {
         return OverlayView(
@@ -34,6 +42,11 @@ class OverlayViewTest {
             onNumber = { numbers += it }, onDelete = { deletes++ },
             onDrag = { dx, dy -> drags += dx to dy }
         ).apply {
+            // Android posts click callbacks through the attached window. An unattached
+            // view queues them until attachment, unlike the real service overlay.
+            activity.get().setContentView(this, ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT))
+            shadowOf(Looper.getMainLooper()).idle()
             measure(View.MeasureSpec.makeMeasureSpec(1200, View.MeasureSpec.AT_MOST),
                 View.MeasureSpec.makeMeasureSpec(1200, View.MeasureSpec.AT_MOST))
             layout(0, 0, measuredWidth, measuredHeight)
