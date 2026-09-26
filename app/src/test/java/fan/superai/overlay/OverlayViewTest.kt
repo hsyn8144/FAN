@@ -152,4 +152,36 @@ class OverlayViewTest {
         drag(view, point.first + 2f to point.second + 2f)
         assertEquals(listOf(40 to 25), drags)
     }
+
+    /**
+     * Veri girişi düğmeleri her zaman kartın içinde kalmalı: yatay kart dar ekranda
+     * ekran genişliğini aştığında sağdaki düğmeler ekran dışında kalıyordu.
+     */
+    @Test fun allDataButtonsStayInsideTheCard() {
+        for (horizontal in listOf(false, true)) {
+            val view = overlay(horizontal)
+            val cardWidth = view.width
+            assertTrue("kart ölçülmeli", cardWidth > 0)
+            for (label in listOf("4", "3", "2", "1", if (horizontal) "⌫" else "DEL")) {
+                val b = text(view, label)
+                val p = center(view, b)
+                assertTrue("$label kart içinde olmalı (x=${p.first}, kart=$cardWidth)",
+                    p.first >= 0f && p.first <= cardWidth.toFloat())
+                assertTrue("$label dokunulabilir olmalı (genişlik=${b.width}, yükseklik=${b.height})",
+                    b.width >= 12 && b.height >= 20)
+            }
+        }
+    }
+
+    /** Kart ekran dışına sürüklenirse konum ekran içine kıstırılmalı. */
+    @Test fun overlayPositionIsClampedToScreen() {
+        val a = clampOverlayPos(5000, -200, 300, 120, 1080, 1920)
+        assertEquals(780, a[0]); assertEquals(0, a[1])
+        val b = clampOverlayPos(-50, 4000, 300, 120, 1080, 1920)
+        assertEquals(0, b[0]); assertEquals(1800, b[1])
+        val c = clampOverlayPos(10, 20, 2000, 3000, 1080, 1920)   // kart ekrandan büyük
+        assertEquals(0, c[0]); assertEquals(0, c[1])
+        val d = clampOverlayPos(40, 240, 300, 120, 1080, 1920)    // zaten içeride
+        assertEquals(40, d[0]); assertEquals(240, d[1])
+    }
 }

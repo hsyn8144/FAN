@@ -2,8 +2,22 @@
 """
 FAN SUPER — Python Meclisi (Chaquopy ile uygulamaya gömülü).
 Kotlin tarafı yalnızca bu modüldeki fonksiyonları çağırır; tüm giriş/çıkış JSON metnidir.
+
+HIZLI GERİ ALMA
+---------------
+Eski sürüm her adımda meclisin TAM derin kopyasını (copy.deepcopy) alıyordu:
+bu hem sayı düğmelerini yavaşlatıyor hem de yalnızca 8 adım geriye izin veriyordu
+(9. geri almada tüm geçmiş baştan öğreniliyordu → dakikalarca bekleme).
+
+Yeni düzen:
+  * Üyeler artık paylaşılan dizileri yerinde değiştirmez, bu yüzden "anlık görüntü"
+    yalnızca referans + birkaç küçük kopya tutar (~60 µs, deepcopy'nin ~1/1000'i).
+  * Her adımın görüntüsü `_journal` halkasına, her CK_EVERY adımda bir de
+    `_checkpoints` (dayanak) listesine yazılır.
+  * `undo_to(n)`: hedef günlükte varsa O(1); değilse en yakın dayanağa dönülüp
+    en çok CK_EVERY adım ileri sarılır. Tam yeniden öğrenme yalnızca dayanak
+    kapsamının dışına çıkılırsa gerekir (Kotlin tarafı bunu yapar).
 """
-import copy
 import json
 import math
 import time
@@ -15,9 +29,15 @@ import fan_members as fm
 
 K = 4
 
+JOURNAL = 32      # adım adım geri alma halkası (canlı girişler için anında undo)
+CK_EVERY = 8      # kaç adımda bir dayanak (checkpoint) alınır
+CK_MAX = 96       # tutulacak dayanak sayısı (CK_EVERY * CK_MAX kayıt geriye kadar)
+ANCHORS = 4       # diske yazılan dayanak sayısı (açılıştan sonra da hızlı undo)
+
 
 class Rolling:
     def __init__(self, cap):
+        self.cap = cap
         self.buf = deque(maxlen=cap)
 
     def add(self, b):
@@ -29,6 +49,13 @@ class Rolling:
 
     def rate(self):
         return (sum(self.buf) / len(self.buf)) if self.buf else 0.0
+
+    # ---- geri alma: 100 baytlık kopya, O(cap) ----
+    def snap(self):
+        return bytes(self.buf)
+
+    def restore(self, b):
+        self.buf = deque(bytearray(b), maxlen=self.cap)
 
 
 class PyCouncil:
@@ -106,19 +133,23 @@ class PyCouncil:
         thr = float(self.cfg.get("bench", 0.20))
         alpha = float(self.cfg.get("alpha", 0.02))
         if preds is not None:
+            nm = len(self.members)
+            factor = np.ones(nm)
+            bench = list(self.bench)          # yeni liste: eski görüntüler bozulmaz
             for i, p in enumerate(preds):
                 o = np.argsort(-p)
                 self.r1[i].add(o[0] == v)
                 self.r2[i].add(o[0] == v or o[1] == v)
-                self.bench[i] = self.r1[i].n >= win and self.r1[i].rate() < thr
-                self.w[i] *= math.exp(-0.6 * -math.log(max(p[v], 1e-9)))
-            s = self.w.sum()
+                bench[i] = bool(self.r1[i].n >= win and self.r1[i].rate() < thr)
+                factor[i] = math.exp(0.6 * math.log(max(float(p[v]), 1e-9)))
+            self.bench = bench
+            w = self.w * factor               # yerinde değil: yeni dizi
+            s = w.sum()
             if not np.isfinite(s) or s <= 0:
-                self.w[:] = 1.0 / len(self.w)
+                w = np.full(nm, 1.0 / nm)
             else:
-                self.w /= s
-            n = len(self.w)
-            self.w = (1 - alpha) * self.w + alpha / n
+                w = w / s
+            self.w = (1 - alpha) * w + alpha / nm
         h = self._hist()
         heavy_ok = (not self.battery) or (self.step_no % 5 == 0)
         for i, m in enumerate(self.members):
@@ -131,6 +162,20 @@ class PyCouncil:
             except Exception:
                 pass
         self.last_ms = (time.time() - t0) * 1000.0
+
+    def capture(self):
+        """Şu anki durumun UCUZ anlık görüntüsü (büyük tablolar kopyalanmaz)."""
+        return {
+            "c": self,
+            "n": len(self.vals),
+            "w": self.w,
+            "bench": list(self.bench),
+            "rolls": [(a.snap(), b.snap()) for a, b in zip(self.r1, self.r2)],
+            "mix": self.last_mix,
+            "preds": self.last_preds,
+            "step_no": self.step_no,
+            "mem": [m.snap() if hasattr(m, "snap") else dict(m.__dict__) for m in self.members],
+        }
 
     def stats(self):
         out = []
@@ -148,11 +193,71 @@ class PyCouncil:
 # ------------------------------------------------------------------ modül durumu
 _council = None
 _cfg = {}
-_snaps = deque(maxlen=8)
+_journal = deque(maxlen=JOURNAL)        # her adımın görüntüsü (n = o adımdan ÖNCEKİ kayıt sayısı)
+_checkpoints = deque(maxlen=CK_MAX)     # seyrek dayanaklar
 
 
 def _lst(p):
     return [float(x) for x in p]
+
+
+def can_restore(s):
+    c = s.get("c") if isinstance(s, dict) else None
+    if c is None:
+        return False
+    try:
+        for m, ms in zip(c.members, s["mem"]):
+            if hasattr(m, "can_restore") and not m.can_restore(ms):
+                return False
+    except Exception:
+        return False
+    return True
+
+
+def _restore(s):
+    """capture() görüntüsüne geri dön. Başarı: True."""
+    c = s.get("c")
+    if c is None:
+        return False
+    global _council
+    try:
+        n = int(s["n"])
+        del c.vals[n:]
+        del c.times[n:]
+        del c.per[n:]
+        c.w = s["w"]
+        c.bench = list(s["bench"])
+        for i, (b1, b2) in enumerate(s["rolls"]):
+            c.r1[i].restore(b1)
+            c.r2[i].restore(b2)
+        c.last_mix = s["mix"]
+        c.last_preds = s["preds"]
+        c.step_no = s["step_no"]
+        for m, ms in zip(c.members, s["mem"]):
+            if hasattr(m, "restore"):
+                if not m.restore(ms):
+                    return False
+            else:
+                m.__dict__.clear()
+                m.__dict__.update(ms)
+        _council = c
+        return True
+    except Exception:
+        return False
+
+
+def _log_snap(s):
+    _journal.append(s)
+    if s["n"] % CK_EVERY == 0:
+        _checkpoints.append(s)
+
+
+def _prune(n):
+    """Hedeften daha yeni görüntüleri at."""
+    while _journal and _journal[-1]["n"] > n:
+        _journal.pop()
+    while _checkpoints and _checkpoints[-1]["n"] > n:
+        _checkpoints.pop()
 
 
 def configure(cfg_json):
@@ -167,32 +272,88 @@ def replay(values_json, times_json):
     vals = json.loads(values_json)
     times = json.loads(times_json)
     _council = PyCouncil(_cfg)
-    _snaps.clear()
+    _journal.clear()
+    _checkpoints.clear()
+    c = _council
     t0 = time.time()
     for v, t in zip(vals, times):
-        _council.predict()
-        _council.learn(int(v), int(t))
-    nxt = _council.predict()
-    _council.last_ms = (time.time() - t0) * 1000.0 / max(1, len(vals))
-    return json.dumps({"per": _council.per, "next": _lst(nxt)})
+        c.predict()
+        _log_snap(c.capture())
+        c.learn(int(v), int(t))
+    nxt = c.predict()
+    c.last_ms = (time.time() - t0) * 1000.0 / max(1, len(vals))
+    return json.dumps({"per": c.per, "next": _lst(nxt)})
 
 
 def step(v, t):
+    """Yeni kaydı öğren; bir sonraki tahmini döndür. (Artık derin kopya YOK → hızlı.)"""
     global _council
     if _council is None:
         _council = PyCouncil(_cfg)
         _council.predict()
-    _snaps.append(copy.deepcopy(_council))
+    _log_snap(_council.capture())
     _council.learn(int(v), int(t))
     return json.dumps(_lst(_council.predict()))
 
 
 def undo():
-    global _council
-    if not _snaps:
+    """Son kaydı geri al (geriye dönük uyumluluk)."""
+    if _council is None:
         return ""
-    _council = _snaps.pop()
-    return json.dumps(_lst(_council.last_mix))
+    return undo_to(len(_council.vals) - 1)
+
+
+def undo_to(n):
+    """Kayıt sayısını tam olarak n'e döndür; n. sıradaki (bir sonraki) tahmini döndür.
+
+    Dönüş "" ise hedefe ulaşılamadı (Kotlin tarafı tam yeniden öğrenmeye düşer).
+    """
+    global _council
+    if _council is None:
+        return ""
+    if n is None:
+        n = len(_council.vals) - 1
+    n = int(n)
+    cur = len(_council.vals)
+    if n < 0 or n > cur:
+        return ""
+    if n == cur:
+        return json.dumps(_lst(_council.last_mix))
+    _prune(n)
+    # 1) hedef tam olarak günlükte: O(1)
+    if _journal and _journal[-1]["n"] == n and can_restore(_journal[-1]):
+        if _restore(_journal.pop()):
+            return json.dumps(_lst(_council.last_mix))
+        return ""
+    # 2) en yakın dayanak + kısa ileri sarım (en çok CK_EVERY adım)
+    while _checkpoints:
+        s = _checkpoints.pop()
+        if not can_restore(s):
+            continue
+        tail_v = list(_council.vals[s["n"]:n])
+        tail_t = list(_council.times[s["n"]:n])
+        if not _restore(s):
+            return ""
+        c = _council
+        for v, t in zip(tail_v, tail_t):
+            c.predict()
+            _log_snap(c.capture())
+            c.learn(int(v), int(t))
+        return json.dumps(_lst(c.predict()))
+    return ""
+
+
+def undo_depth():
+    """Kaç adımın anında geri alınabileceği (arayüz/teşhis için)."""
+    if _council is None:
+        return 0
+    n = len(_council.vals)
+    reach = n
+    if _journal:
+        reach = min(reach, _journal[0]["n"])
+    if _checkpoints:
+        reach = min(reach, _checkpoints[0]["n"])
+    return n - reach
 
 
 def stats():
@@ -210,16 +371,25 @@ def info():
         "n": len(_council.vals),
         "numpy": np.__version__,
         "dl": _council.dl,
+        "undo": "%d adım anında · %d görüntü/%d dayanak" % (undo_depth(), len(_journal), len(_checkpoints)),
     })
 
 
 def save_state(path):
-    """Öğrenilmiş meclisi diske kaydeder (açılışta yeniden öğrenmemek için)."""
+    """Öğrenilmiş meclisi diske kaydeder (açılışta yeniden öğrenmemek için).
+
+    Dayanaklar (anchors) da yazılır: uygulama yeniden açıldığında ilk geri alma
+    bile tüm geçmişi baştan öğrenmek zorunda kalmaz.
+    """
     import pickle
     if _council is None:
         return "yok"
+    anchors = []
+    for s in list(_checkpoints)[-ANCHORS:]:
+        if s.get("c") is _council and can_restore(s):
+            anchors.append(s)
     with open(path, "wb") as f:
-        pickle.dump({"council": _council, "cfg": _cfg}, f, protocol=pickle.HIGHEST_PROTOCOL)
+        pickle.dump({"council": _council, "cfg": _cfg, "anchors": anchors}, f, protocol=pickle.HIGHEST_PROTOCOL)
     return "ok"
 
 
@@ -239,7 +409,14 @@ def load_state(path, values_json, times_json):
         if c.vals != [int(x) for x in vals] or c.times != [int(x) for x in times] or d.get("cfg") != _cfg:
             return ""
         _council = c
-        _snaps.clear()
-        return json.dumps({"per": _council.per, "next": _lst(_council.predict())})
+        _journal.clear()
+        _checkpoints.clear()
+        for a in (d.get("anchors") or []):
+            try:
+                if a.get("c") is c and 0 <= int(a["n"]) <= len(c.vals) and can_restore(a):
+                    _checkpoints.append(a)
+            except Exception:
+                pass
+        return json.dumps({"per": c.per, "next": _lst(c.predict())})
     except Exception:
         return ""

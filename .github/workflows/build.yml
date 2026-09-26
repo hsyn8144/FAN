@@ -30,19 +30,25 @@ jobs:
       - name: Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Python meclisi testi
+      - name: Python meclisi testi (hızlı geri alma)
         run: |
           pip install "numpy<2"
           cd app/src/main/python
           python - <<'PY'
-          import json, fan_super as fs
+          import json, time, fan_super as fs
           v=[i%4 for i in range(120)]; t=[1700000000+i for i in range(120)]
           fs.configure(json.dumps({"window":100}))
           r=json.loads(fs.replay(json.dumps(v), json.dumps(t)))
           assert len(r["per"])==120 and len(r["next"])==4
-          fs.step(1, 1700000200); assert fs.undo()!=""
-          print("Python meclisi OK", fs.info())
+          nxt=r["next"]
+          fs.step(1, 1700000200)
+          t0=time.time(); back=json.loads(fs.undo_to(120)); dt=(time.time()-t0)*1000.0
+          assert max(abs(a-b) for a,b in zip(nxt,back)) < 1e-12, "geri alma tahmini bozdu"
+          assert dt < 2000, "geri alma cok yavas: %.1f ms" % dt
+          assert fs.undo_to(80), "derin geri alma basarisiz"
+          print("Python meclisi OK · undo %.1f ms ·" % dt, fs.info())
           PY
+          python ../test/python/test_fan_super.py -v
 
       - name: Overlay testleri ve APK derle
         run: |
@@ -97,11 +103,26 @@ jobs:
           cp app/build/outputs/apk/debug/app-debug.apk out/FAN_SUPER_v1.0_build${{ github.run_number }}.apk
           ls -la out
 
+      - name: Kaynak kod paketi (FanSuper.zip)
+        run: |
+          mkdir -p out
+          rm -f out/FanSuper.zip
+          zip -r -q out/FanSuper.zip . \
+            -x ".git/*" -x "*/build/*" -x ".gradle/*" -x "out/*" -x ".idea/*" -x "*.apk"
+          unzip -l out/FanSuper.zip | tail -3
+          ls -la out
+
       - name: Artifact yükle
         uses: actions/upload-artifact@v4
         with:
           name: FAN_SUPER_APK
           path: out/*.apk
+
+      - name: Kaynak kod artifact'ı
+        uses: actions/upload-artifact@v4
+        with:
+          name: FanSuper_SOURCE
+          path: out/FanSuper.zip
 
       - name: Release (main)
         if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
@@ -109,5 +130,9 @@ jobs:
         with:
           tag_name: build-${{ github.run_number }}
           name: FAN SUPER v1.0 (build ${{ github.run_number }})
-          body: "Telefona kurmak için aşağıdaki APK dosyasını indirin."
-          files: out/*.apk
+          body: |
+            **FAN_SUPER_APK** → telefona kurulabilir APK.
+            **FanSuper.zip** → bu sürümün tüm kaynak kodları (Android Studio / `./gradlew assembleDebug` ile derlenebilir).
+          files: |
+            out/*.apk
+            out/FanSuper.zip

@@ -12,6 +12,8 @@ import java.io.File
  * Uygulamaya gömülü Python meclisi (Chaquopy). Tüm çağrılar motor iş parçacığından yapılır.
  */
 class PythonBridge(private val ctx: Context, private val cfgJson: String) : ExternalCouncil {
+    private companion object { const val SAVE_EVERY = 10 }
+
     private val mod: PyObject
     private val stateFile = File(ctx.filesDir, "py_state.pkl")
     private var sinceSave = 0
@@ -45,14 +47,15 @@ class PythonBridge(private val ctx: Context, private val cfgJson: String) : Exte
 
     override fun step(value: Int, time: Long): DoubleArray {
         val r = arr(JSONArray(mod.callAttr("step", value, time).toString()))
-        if (++sinceSave >= 10) save()
+        if (++sinceSave >= SAVE_EVERY) save()
         return r
     }
 
-    override fun undo(): DoubleArray? {
-        val s = mod.callAttr("undo").toString()
+    /** Python meclisini tam olarak [count] kayda döndürür (hedef tutmazsa null). */
+    override fun undoTo(count: Int): DoubleArray? {
+        val s = try { mod.callAttr("undo_to", count).toString() } catch (e: Exception) { "" }
         if (s.isEmpty()) return null
-        sinceSave = 10
+        sinceSave = SAVE_EVERY      // durum dosyası bir sonraki adımda tazelenir
         return arr(JSONArray(s))
     }
 

@@ -42,6 +42,34 @@ class KalipArama2(private val maxLen: Int = 30) : Member {
     private var leaderSince = 0
     private var step = 0
 
+    // ---- geri alma ----
+    override val undoable = true
+    private class Tok(val w: DoubleArray, val step: Int, val leader: Int, val leaderSince: Int,
+                      val lastSize: Int, val lastSub: Array<DoubleArray?>, val lastCount: IntArray)
+    private var tok: Tok? = null
+    override fun undoToken(): Any? = tok
+
+    override fun undo(token: Any?, h: History) {
+        val t = token as? Tok ?: return
+        t.w.copyInto(w)
+        step = t.step; leader = t.leader; leaderSince = t.leaderSince; lastSize = t.lastSize
+        t.lastSub.copyInto(lastSub)
+        t.lastCount.copyInto(lastCount)
+        // Bu adımın indekse yazdığı sayaçları geri al: aynı anahtarlar yeniden hesaplanır,
+        // yalnızca bu adımda oluşmuş (sayacı sıfırlanan) anahtarlar silinir.
+        val end = h.size - 1
+        for (view in 0 until V) for (len in 1..maxLen) {
+            if (end - len < 0) break
+            if (view == 1 && end - len < 1) break
+            val kk = key(view, len, h, end)
+            val code = outcomeCode(view, h, len)
+            if (code >= K) continue
+            val c = table[kk] ?: continue
+            if (c[code] > 0) c[code]--
+            if (c.sum() == 0) table.remove(kk)
+        }
+    }
+
     private fun seq(h: History, view: Int, i: Int): Int {
         val v = h[i]
         return when (view) {
@@ -140,6 +168,9 @@ class KalipArama2(private val maxLen: Int = 30) : Member {
     }
 
     override fun update(h: History) {
+        // Geri alma kaydı: adım öncesi durum (indeks tablosu kopyalanmaz, undo'da
+        // bu adımın eklediği sayaçlar geri alınır).
+        tok = Tok(w.copyOf(), step, leader, leaderSince, lastSize, lastSub.copyOf(), lastCount.copyOf())
         step++
         val a = h.last()
         // Alt-uzman ağırlıkları

@@ -72,7 +72,26 @@ class GruMember(private val H: Int = 16, private val T: Int = 10, private val lr
         return P.normalize(out(forward(h, h.size).last().h))
     }
 
+    // ---- geri alma: tüm ağırlıkların kopyası (~9 KB) → BPTT adımı tam olarak geri alınır ----
+    override val undoable = true
+    private class Tok(val mats: List<Array<DoubleArray>>, val by: DoubleArray)
+    private var tok: Tok? = null
+    override fun undoToken(): Any? = tok
+    private fun mats() = listOf(Wz, Uz, Wr, Ur, Wn, Un, Wy)
+    private fun copyMats() = mats().map { m -> Array(m.size) { i -> m[i].copyOf() } }
+    private fun restoreMats(src: List<Array<DoubleArray>>) {
+        val dst = mats()
+        for (i in dst.indices) for (r in dst[i].indices) src[i][r].copyInto(dst[i][r])
+    }
+
+    override fun undo(token: Any?, h: History) {
+        val t = token as? Tok ?: return
+        restoreMats(t.mats)
+        t.by.copyInto(by)
+    }
+
     override fun update(h: History) {
+        tok = Tok(copyMats(), by.copyOf())
         val end = h.size - 1
         if (end < 2) return
         val steps = forward(h, end)
@@ -158,7 +177,21 @@ class EsnMember(private val N: Int = 60, private val lr: Double = 0.03, seed: In
         return P.normalize(read())
     }
 
+    // ---- geri alma: çıkış katmanı + rezervuar durumu (Win/W sabittir, kopyalanmaz) ----
+    override val undoable = true
+    private class Tok(val wo: Array<DoubleArray>, val state: DoubleArray, val stateSize: Int)
+    private var tok: Tok? = null
+    override fun undoToken(): Any? = tok
+
+    override fun undo(token: Any?, h: History) {
+        val t = token as? Tok ?: return
+        for (k in Wo.indices) t.wo[k].copyInto(Wo[k])
+        if (t.state.size == state.size) t.state.copyInto(state) else state = t.state.copyOf()
+        stateSize = t.stateSize
+    }
+
     override fun update(h: History) {
+        tok = Tok(Array(K) { k -> Wo[k].copyOf() }, state.copyOf(), stateSize)
         val end = h.size - 1
         if (stateSize != end) { state = DoubleArray(N); for (i in maxOf(0, end - 40) until end) advance(h[i]) }
         val y = read()

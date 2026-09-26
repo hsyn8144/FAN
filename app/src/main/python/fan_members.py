@@ -4,11 +4,22 @@ FAN SUPER — Python Meclisi üyeleri.
 Tüm değerler 0..3 (kullanıcı sayısı 1..4). Her üye:
     predict(h) -> np.ndarray(4)   (h.n kayıt bilinirken sonraki için dağılım)
     update(h)                     (h.n kayıt; son kayıt yeni gelen gerçek sonuç)
+
+Geri alma (undo) protokolü — fan_super.py hızlı geri alma için kullanır:
+    snap()         -> adım öncesi durumun UCUZ kaydı (büyük tablolar kopyalanmaz)
+    can_restore(s) -> bu kayıt hâlâ geri yüklenebilir mi
+    restore(s)     -> kayda geri dön, başarı için True
+Bu üçlüyü tanımlamayan üyeler için `dict(m.__dict__)` sığ kopyası kullanılır.
+Bu yüzden hiçbir üye paylaşılan numpy dizilerini / listeleri / sözlükleri
+YERİNDE değiştirmemeli, her zaman yeni bir nesne atamalıdır.
 """
 import math
 import numpy as np
 
 K = 4
+
+# Tablo tutan üyelerin (MotifDiscovery) geri alma günlüğü üst sınırı.
+UNDO_LOG_MAX = 20000
 
 
 def norm(p, floor=1e-4):
@@ -142,8 +153,10 @@ class LSTM:
         dy = y.copy()
         dy[int(h.v[end])] -= 1
         dh = self.Wy.T @ dy
-        self.Wy -= self.lr * np.outer(dy, hT)
-        self.by -= self.lr * dy
+        # Geri alma (undo) anlık görüntüleri dizi nesnelerini paylaştığı için
+        # ağırlıklar her zaman YENİ bir diziye yazılır (yerinde -= kullanılmaz).
+        self.Wy = self.Wy - self.lr * np.outer(dy, hT)
+        self.by = self.by - self.lr * dy
         dW = np.zeros_like(self.W)
         db = np.zeros_like(self.b)
         dc = np.zeros(H)
@@ -161,8 +174,8 @@ class LSTM:
             dc = dc * fg
         np.clip(dW, -1, 1, out=dW)
         np.clip(db, -1, 1, out=db)
-        self.W -= self.lr * dW
-        self.b -= self.lr * db
+        self.W = self.W - self.lr * dW
+        self.b = self.b - self.lr * db
 
 
 # ---------------------------------------------------------------- 2) Mini Transformer (dikkat)
@@ -225,8 +238,10 @@ class MiniTransformer:
         pa = 0.85 * p[y] + 0.15 / K
         ds = -(0.85 / pa) * a * (Y[:, y] - p[y])
         gM = np.outer(q, ds @ Kx)  # dL/dM = sum_j ds_j q k_j^T
-        self.M -= self.lr * np.clip(gM, -1, 1)
-        np.add.at(self.pb, dist, -self.lr * ds)
+        self.M = self.M - self.lr * np.clip(gM, -1, 1)
+        upd = np.zeros(self.C)          # yerinde np.add.at yerine: yeni dizi (undo için güvenli)
+        np.add.at(upd, np.asarray(dist, dtype=int), -self.lr * ds)
+        self.pb = self.pb + upd
 
 
 # ---------------------------------------------------------------- 3) 1D-CNN
@@ -281,13 +296,21 @@ class CNN1D:
         dy = y.copy()
         dy[int(h.v[end])] -= 1
         df = self.Wo.T @ dy
-        self.Wo -= self.lr * np.outer(dy, f)
+        self.Wo = self.Wo - self.lr * np.outer(dy, f)
         L = self.Wn - 2
+        k = None
+        kb = None
         for fi in range(self.F):
             for pos, g in ((mi[fi], df[fi]), (L - 1, df[self.F + fi])):
                 if Z[fi, pos] > 0 and g != 0:
-                    self.k[fi] -= self.lr * g * X[:, pos:pos + 3]
-                    self.kb[fi] -= self.lr * g
+                    if k is None:                 # kopya üzerinde çalış: eski dizi undo için bozulmadan kalır
+                        k = self.k.copy()
+                        kb = self.kb.copy()
+                    k[fi] -= self.lr * g * X[:, pos:pos + 3]
+                    kb[fi] -= self.lr * g
+        if k is not None:
+            self.k = k
+            self.kb = kb
 
 
 # ---------------------------------------------------------------- 4) Kalıp 2.0 bulanık
@@ -519,6 +542,27 @@ class GradBoost:
             self.since = 0
             self._fit()
 
+    # ---- geri alma: örneklem listelerini kopyalamadan, kimlik + uzunlukla O(1) ----
+    def snap(self):
+        return (self.X, len(self.X), self.y, len(self.y), self.since, self.model)
+
+    def can_restore(self, s):
+        return True
+
+    def restore(self, s):
+        X, nx, Y, ny, since, model = s
+        if self.X is X:
+            del X[nx:]
+        else:
+            self.X = X[:nx]
+        if self.y is Y:
+            del Y[ny:]
+        else:
+            self.y = Y[:ny]
+        self.since = since
+        self.model = model
+        return True
+
 
 # ---------------------------------------------------------------- 8) Bağlam modeli
 class ContextModel:
@@ -539,7 +583,7 @@ class ContextModel:
         x = features(h, end)
         p = softmax(self.W @ x)
         p[int(h.v[end])] -= 1
-        self.W -= self.lr * (np.outer(p, x) + self.l2 * self.W)
+        self.W = self.W - self.lr * (np.outer(p, x) + self.l2 * self.W)
 
 
 # ---------------------------------------------------------------- 9) Motif keşfi
@@ -552,6 +596,8 @@ class MotifDiscovery:
     def __init__(self, kmax=6, support=8):
         self.kmax, self.support = kmax, support
         self.tab = {}
+        self._undo = []      # [(anahtar, eski dizi ya da None)] — son adımların değişiklik günlüğü
+        self._dropped = 0    # günlük kırpıldıysa atılan kayıt sayısı
 
     def predict(self, h):
         n = h.n
@@ -587,11 +633,36 @@ class MotifDiscovery:
             if n - 1 < k:
                 break
             key = (k,) + tuple(int(x) for x in v[n - 1 - k:n - 1])
-            c = self.tab.get(key)
-            if c is None:
-                c = np.zeros(K)
-                self.tab[key] = c
+            old = self.tab.get(key)
+            c = np.zeros(K) if old is None else old.copy()   # kopya üzerinde yaz: eski durum bozulmaz
             c[a] += 1
+            self.tab[key] = c
+            self._undo.append((key, old))
+        if len(self._undo) > UNDO_LOG_MAX:
+            keep = UNDO_LOG_MAX // 2
+            self._dropped += len(self._undo) - keep
+            del self._undo[:len(self._undo) - keep]
+
+    # ---- geri alma: tablo kopyalanmaz, günlük geri sarılır ----
+    def snap(self):
+        return (self.tab, len(self._undo) + self._dropped)
+
+    def can_restore(self, s):
+        return s[1] >= self._dropped
+
+    def restore(self, s):
+        tab, depth = s
+        target = depth - self._dropped
+        if target < 0:
+            return False
+        self.tab = tab
+        while len(self._undo) > target:
+            key, old = self._undo.pop()
+            if old is None:
+                tab.pop(key, None)
+            else:
+                tab[key] = old
+        return True
 
 
 # ---------------------------------------------------------------- 10) HMM
