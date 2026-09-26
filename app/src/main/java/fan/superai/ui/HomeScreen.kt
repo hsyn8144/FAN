@@ -90,7 +90,7 @@ fun HomeScreen(onOverlay: () -> Unit) {
 
         val sc = st?.scores
         FCard("Başarı (son ${sc?.n ?: 0}) · şans çizgisiyle") {
-            fun row(k: String, x: Double?, chance: Int) = KV(k, "${x?.let { pct(it) } ?: "--"}  / şans %$chance",
+            @Composable fun row(k: String, x: Double?, chance: Int) = KV(k, "${x?.let { pct(it) } ?: "--"}  / şans %$chance",
                 vColor = when { x == null -> C.text; x > chance / 100.0 + 0.02 -> C.lightGreen; x < chance / 100.0 - 0.02 -> C.danger; else -> C.text })
             row("Tek", sc?.top1, 25)
             row("Çift (ikisinden biri)", sc?.top2, 50)
