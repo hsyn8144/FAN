@@ -50,7 +50,7 @@ jobs:
           print("Python meclisi OK · undo %.1f ms ·" % dt, fs.info())
           PY
           r1=$?
-          python ../test/python/test_fan_super.py -v > py_undo.log 2>&1
+          python ../../test/python/test_fan_super.py -v > py_undo.log 2>&1
           r2=$?
           set -e
           R1=$r1 R2=$r2 python3 - <<'ANN'
