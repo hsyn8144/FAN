@@ -47,7 +47,20 @@ jobs:
       - name: APK derle
         run: |
           chmod +x gradlew
-          ./gradlew --no-daemon --stacktrace assembleDebug
+          set -o pipefail
+          ./gradlew --no-daemon assembleDebug 2>&1 | tee build.log
+
+      - name: Hata özeti (annotation)
+        if: failure()
+        run: |
+          grep -E "^e: |error:|What went wrong|Could not|> [A-Z]|FAILURE|Exception|Caused by|not found|Unresolved|ERROR" build.log | grep -v "^\s*at " | head -120 > err.txt || true
+          [ -s err.txt ] || tail -80 build.log > err.txt
+          python3 - <<'PY'
+          lines=open('err.txt',encoding='utf-8',errors='replace').read().splitlines()
+          for i in range(0,len(lines),30):
+              chunk='%0A'.join(l.replace('%','%25').replace('\r','') for l in lines[i:i+30])
+              print('::error title=build-log-%d::%s' % (i//30, chunk))
+          PY
 
       - name: APK adını düzenle
         run: |
