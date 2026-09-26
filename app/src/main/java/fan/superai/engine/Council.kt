@@ -59,8 +59,31 @@ class Council(val name: String, val members: List<Member>, private var cfg: Engi
         return lastMix
     }
 
+    /**
+     * Geri alma kaydı: meclisin ADIM ÖNCESİ durumu (ağırlıklar, kayan pencereler,
+     * yedek bayrakları) + her üyenin kendi kaydı. Büyük üye tabloları kopyalanmaz.
+     */
+    class Snap(
+        val hedge: DoubleArray,
+        val r1: List<Rolling.Snap>, val r2: List<Rolling.Snap>,
+        val benched: BooleanArray,
+        val self1: Rolling.Snap, val self2: Rolling.Snap,
+        val lastPreds: List<DoubleArray>?, val lastMix: DoubleArray, val lastSize: Int,
+        val members: Array<Any?>
+    )
+
+    private var snap: Snap? = null
+
+    /** Tüm üyeler geri almayı destekliyorsa meclis de destekler. */
+    val undoable: Boolean get() = members.all { it.undoable }
+
+    fun undoToken(): Any? = snap
+
     /** h, gerçek sonuç dahil edilmiş geçmiş. predict() h.size-1 iken çağrılmış olmalı. */
     fun update(h: History) {
+        val before = Snap(hedge.snapshot(), r1.map { it.snapshot() }, r2.map { it.snapshot() },
+            benched.copyOf(), selfTop1.snapshot(), selfTop2.snapshot(),
+            lastPreds, lastMix, lastSize, arrayOfNulls(members.size))
         val a = h.last()
         val preds = lastPreds
         if (preds != null && lastSize == h.size - 1) {
@@ -73,7 +96,30 @@ class Council(val name: String, val members: List<Member>, private var cfg: Engi
             }
             hedge.update(preds, a)
         }
-        for (m in members) try { m.update(h) } catch (_: Exception) {}
+        for (i in members.indices) {
+            val m = members[i]
+            try { m.update(h) } catch (_: Exception) {}
+            before.members[i] = m.undoToken()
+        }
+        snap = before
+    }
+
+    /**
+     * Meclisi tam olarak bir adım geri alır (h: geri alınan kayıt dahil geçmiş).
+     * Kayıt eksikse hiçbir şey değiştirmeden false döner; motor o zaman tam
+     * yeniden kurmaya düşer.
+     */
+    fun undo(token: Any?, h: History): Boolean {
+        val s = token as? Snap ?: return false
+        if (s.members.size != members.size || s.r1.size != members.size || s.r2.size != members.size) return false
+        for (i in members.indices) if (members[i].undoable && s.members[i] == null) return false
+        hedge.restore(s.hedge)
+        for (i in members.indices) { r1[i].restore(s.r1[i]); r2[i].restore(s.r2[i]) }
+        s.benched.copyInto(benched)
+        selfTop1.restore(s.self1); selfTop2.restore(s.self2)
+        lastPreds = s.lastPreds; lastMix = s.lastMix; lastSize = s.lastSize
+        for (i in members.indices) try { members[i].undo(s.members[i], h) } catch (e: Exception) { return false }
+        return true
     }
 
     fun memberPreds(): List<DoubleArray> = lastPreds ?: members.map { P.uniform() }

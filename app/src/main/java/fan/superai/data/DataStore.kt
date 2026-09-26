@@ -7,6 +7,7 @@ import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
 import java.io.File
+import java.io.RandomAccessFile
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -21,6 +22,8 @@ data class Rec(val value: Int, val time: Long)
 object DataStore {
     private const val FILE = "fan_super_data.csv"
     private const val SEED = "fan_data_live.csv"
+    private const val NL: Byte = 10      // '\n'
+    private const val CR: Byte = 13      // '\r'
     private val fmt get() = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US)
 
     private fun file(ctx: Context) = File(ctx.filesDir, FILE)
@@ -49,6 +52,27 @@ object DataStore {
         val f = file(ctx)
         if (!f.exists()) f.writeText("id|tarih|sayi\n")
         f.appendText("$index|${fmt.format(Date(r.time * 1000))}|${r.value}\n", Charsets.UTF_8)
+    }
+
+    /**
+     * Son satırı (son kaydı) dosyadan düşürür: tüm CSV'yi yeniden yazmak yerine dosya
+     * sonundan kısaltılır. "Geri al" düğmesinin hızlı olmasının bir parçası.
+     * Silinecek kayıt yoksa ya da dosya beklenmedik biçimdeyse false döner.
+     */
+    fun removeLast(ctx: Context): Boolean {
+        val f = file(ctx)
+        if (!f.exists() || f.length() == 0L) return false
+        return try {
+            val b = f.readBytes()
+            var end = b.size
+            while (end > 0 && (b[end - 1] == NL || b[end - 1] == CR)) end--      // satır sonu boşlukları
+            while (end > 0 && b[end - 1] != NL) end--                            // son satırın başı
+            if (end == 0) return false                                           // yalnızca başlık var
+            RandomAccessFile(f, "rw").use { it.setLength(end.toLong()) }
+            true
+        } catch (e: Exception) {
+            false
+        }
     }
 
     /**

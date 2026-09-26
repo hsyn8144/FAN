@@ -12,6 +12,11 @@ class Calibrator(private val lo: Double, private val hi: Double, private val bin
     fun table(): List<Triple<Double, Int, Double>> = (0 until bins).filter { n[it] > 0 }.map {
         Triple(lo + (hi - lo) * it / bins, n[it].toInt(), hit[it] / n[it])
     }
+
+    /** Geri alma için tam kopya (2 × bins sayı). */
+    class Snap(val hit: DoubleArray, val n: DoubleArray)
+    fun snapshot() = Snap(hit.copyOf(), n.copyOf())
+    fun restore(s: Snap) { s.hit.copyInto(hit); s.n.copyInto(n) }
 }
 
 data class Verdict(
@@ -39,6 +44,7 @@ class Referee(private var cfg: EngineConfig) {
     private val hedge = FixedShareHedge(2, eta = 0.5, alpha = if (cfg.fixedShare) 0.03 else 0.0)
     private val W = Array(K) { k -> DoubleArray(2 * K + 1).also { it[k] = 0.5; it[K + k] = 0.5 } }
     private val lr = 0.02
+    private val scoreCap = 300
     private val scores = ArrayDeque<Double>()
     val calSingle = Calibrator(0.25, 0.75)
     val calPair = Calibrator(0.45, 0.95)
@@ -47,6 +53,30 @@ class Referee(private var cfg: EngineConfig) {
     private var lastStack: DoubleArray? = null
     private var lastPreds: List<DoubleArray>? = null
     private var lastV: Verdict? = null
+
+    /** Geri alma kaydı: hakemin ADIM ÖNCESİ durumu (tümü küçük diziler). */
+    class Tok(
+        val hedge: DoubleArray, val w: Array<DoubleArray>,
+        val scoresSize: Int, val evicted: Double?,
+        val cs: Calibrator.Snap, val cp: Calibrator.Snap, val csd: Calibrator.Snap,
+        val lastFeat: DoubleArray?, val lastStack: DoubleArray?,
+        val lastPreds: List<DoubleArray>?, val lastV: Verdict?
+    )
+
+    private var tok: Tok? = null
+    fun undoToken(): Any? = tok
+
+    /** Hakemi bir adım geri alır (kayıt yoksa false). */
+    fun undo(token: Any?): Boolean {
+        val t = token as? Tok ?: return false
+        hedge.restore(t.hedge)
+        for (k in 0 until K) t.w[k].copyInto(W[k])
+        while (scores.size > t.scoresSize) scores.removeLast()
+        t.evicted?.let { scores.addFirst(it) }
+        calSingle.restore(t.cs); calPair.restore(t.cp); calSide.restore(t.csd)
+        lastFeat = t.lastFeat; lastStack = t.lastStack; lastPreds = t.lastPreds; lastV = t.lastV
+        return true
+    }
 
     private fun feats(pk: DoubleArray, pp: DoubleArray) =
         DoubleArray(2 * K + 1) { i -> when { i < K -> ln(max(pk[i], 1e-6)); i < 2 * K -> ln(max(pp[i - K], 1e-6)); else -> 1.0 } }
@@ -89,6 +119,11 @@ class Referee(private var cfg: EngineConfig) {
     }
 
     fun update(actual: Int) {
+        // Adım öncesi durum: geri alma için (aşağıdaki erken dönüşte de geçerli).
+        tok = Tok(hedge.snapshot(), Array(K) { k -> W[k].copyOf() }, scores.size,
+            if (scores.size >= scoreCap) scores.first() else null,
+            calSingle.snapshot(), calPair.snapshot(), calSide.snapshot(),
+            lastFeat, lastStack, lastPreds, lastV)
         val v = lastV ?: return
         lastPreds?.let { hedge.update(it, actual) }
         val f = lastFeat; val st = lastStack
@@ -96,7 +131,7 @@ class Referee(private var cfg: EngineConfig) {
             val g = st[k] - if (k == actual) 1.0 else 0.0
             for (j in f.indices) W[k][j] -= lr * g * f[j]
         }
-        scores.addLast(1 - v.probs[actual]); if (scores.size > 300) scores.removeFirst()
+        scores.addLast(1 - v.probs[actual]); if (scores.size > scoreCap) scores.removeFirst()
         val o = P.order(v.probs)
         calSingle.add(v.probs[o[0]], o[0] == actual)
         calPair.add(v.probs[o[0]] + v.probs[o[1]], o[0] == actual || o[1] == actual)

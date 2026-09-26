@@ -20,7 +20,16 @@ class History(
     fun last(back: Int = 1) = values[size - back]
 }
 
-/** Meclis üyesi. predict() bir sonraki değer için olasılık, update() gerçek sonucu öğrenir. */
+/**
+ * Meclis üyesi. predict() bir sonraki değer için olasılık, update() gerçek sonucu öğrenir.
+ *
+ * GERİ ALMA (undo): Bir üye [undoable] = true bildiriyorsa, update() çağrısının hemen
+ * ardından [undoToken] ile o adımın ÖNCESİNE ait küçük bir kayıt döndürür; [undo] bu
+ * kayıtla üyeyi bir adım geriye alır. Kayıtlar yalnızca küçük diziler tutar (ağırlıklar,
+ * sayaçlar); büyük tablolar (kalıp indeksi, CTW ağacı, PPM sözlüğü) kopyalanmaz, onların
+ * yerine adımda değişen hücreler geri alınır. Böylece "Geri al" tüm geçmişi baştan
+ * öğrenmek zorunda kalmaz.
+ */
 interface Member {
     val id: String
     val name: String
@@ -30,6 +39,12 @@ interface Member {
     fun update(h: History)
     /** Arayüzde gösterilecek ek bilgi (isteğe bağlı). */
     fun info(): Map<String, String> = emptyMap()
+    /** Geri alma destekleniyor mu. false ise motor tam yeniden kurmaya düşer. */
+    val undoable: Boolean get() = false
+    /** Son update() adımını geri almak için gereken kayıt (adım öncesi durum). */
+    fun undoToken(): Any? = null
+    /** [undoToken] kaydını uygular. h: geri alınan kayıt DAHİL geçmiş (update'e verilen). */
+    fun undo(token: Any?, h: History) {}
 }
 
 object P {
@@ -75,6 +90,11 @@ class Rolling(private val cap: Int) {
     }
     val count get() = n
     fun rate(): Double = if (n == 0) 0.0 else hits.toDouble() / n
+
+    /** Geri alma için tam durum kopyası (cap bayt + 3 sayı). */
+    class Snap(val n: Int, val pos: Int, val hits: Int, val buf: BooleanArray)
+    fun snapshot() = Snap(n, pos, hits, buf.copyOf())
+    fun restore(s: Snap) { n = s.n; pos = s.pos; hits = s.hits; s.buf.copyInto(buf) }
 }
 
 /**
@@ -107,4 +127,8 @@ class FixedShareHedge(n: Int, var eta: Double = 0.6, var alpha: Double = 0.02) {
 
     /** Ortalama 1 olacak şekilde ölçeklenmiş ağırlık (arayüz için). */
     fun scaled(i: Int) = w[i] * w.size
+
+    /** Geri alma: ağırlıkların kopyası. */
+    fun snapshot(): DoubleArray = w.copyOf()
+    fun restore(s: DoubleArray) { if (s.size == w.size) s.copyInto(w) }
 }

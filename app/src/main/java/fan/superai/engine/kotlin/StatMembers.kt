@@ -33,13 +33,30 @@ class CtwMember(private val depth: Int = 6) : Member {
         for (j in 0 until d) x = x * 5 + path[j] + 1
         return x
     }
-    private fun pathNodes(h: History, end: Int, create: Boolean): Array<Node?> {
-        val path = IntArray(depth) { ctxSym(h, end, it) }
-        return Array(depth + 1) { d ->
-            if (d == 0) root else {
-                val k = keyOf(path, d)
-                if (create) nodes.getOrPut(k) { Node() } else nodes[k]
-            }
+    private fun pathOf(h: History, end: Int) = IntArray(depth) { ctxSym(h, end, it) }
+    private fun nodesOf(path: IntArray, create: Boolean): Array<Node?> = Array(depth + 1) { d ->
+        if (d == 0) root else {
+            val k = keyOf(path, d)
+            if (create) nodes.getOrPut(k) { Node() } else nodes[k]
+        }
+    }
+    private fun pathNodes(h: History, end: Int, create: Boolean): Array<Node?> = nodesOf(pathOf(h, end), create)
+
+    // ---- geri alma: ağaç kopyalanmaz, yalnızca bu adımda değişen düğümler saklanır ----
+    override val undoable = true
+    private class Tok(val s: Int, val nodes: Array<Node?>, val keys: LongArray, val pe: DoubleArray,
+                      val pw: DoubleArray, val cs: DoubleArray, val cnt: IntArray, val n: IntArray)
+    private var tok: Tok? = null
+    override fun undoToken(): Any? = tok
+
+    override fun undo(token: Any?, h: History) {
+        val t = token as? Tok ?: return
+        for (d in 0..depth) {
+            val nd = t.nodes[d] ?: continue
+            nd.logPe = t.pe[d]; nd.logPw = t.pw[d]; nd.childSum = t.cs[d]
+            nd.c[t.s] = t.cnt[d]; nd.n = t.n[d]
+            // n == 0 ise düğüm bu adımda oluşturulmuştu → indeksten sil
+            if (d > 0 && t.n[d] == 0) nodes.remove(t.keys[d])
         }
     }
 
@@ -69,7 +86,18 @@ class CtwMember(private val depth: Int = 6) : Member {
     override fun update(h: History) {
         val end = h.size - 1
         val s = h.last()
-        val ns = pathNodes(h, end, true)
+        val path = pathOf(h, end)
+        val ns = nodesOf(path, true)
+        // adım öncesi düğüm değerleri (geri alma için)
+        val t = Tok(s, ns, LongArray(depth + 1) { d -> if (d == 0) 0L else keyOf(path, d) },
+            DoubleArray(depth + 1), DoubleArray(depth + 1), DoubleArray(depth + 1),
+            IntArray(depth + 1), IntArray(depth + 1))
+        for (d in 0..depth) {
+            val nd = ns[d] ?: continue
+            t.pe[d] = nd.logPe; t.pw[d] = nd.logPw; t.cs[d] = nd.childSum
+            t.cnt[d] = nd.c[s]; t.n[d] = nd.n
+        }
+        tok = t
         var childOld = 0.0; var childNew = 0.0
         for (d in depth downTo 0) {
             val nd = ns[d]!!
@@ -118,7 +146,35 @@ class PpmMember(private val maxOrder: Int = 5) : Member {
 
     override fun update(h: History) {
         val end = h.size - 1
-        for (o in 0..min(maxOrder, end)) table.getOrPut(key(h, end, o)) { IntArray(K) }[h.last()]++
+        val s = h.last()
+        val m = min(maxOrder, end)
+        // geri alma kaydı: bu adımda dokunulan anahtarlar ve sayaçların adım öncesi değeri
+        val keys = LongArray(m + 1); val pre = IntArray(m + 1); val created = BooleanArray(m + 1)
+        for (o in 0..m) {
+            val k = key(h, end, o)
+            keys[o] = k
+            var c = table[k]
+            if (c == null) { c = IntArray(K); table[k] = c; created[o] = true }
+            pre[o] = c[s]
+            c[s]++
+        }
+        tok = Tok(keys, pre, created, s)
+    }
+
+    // ---- geri alma: tablo kopyalanmaz, dokunulan hücreler eski değerine döner ----
+    override val undoable = true
+    private class Tok(val keys: LongArray, val pre: IntArray, val created: BooleanArray, val s: Int)
+    private var tok: Tok? = null
+    override fun undoToken(): Any? = tok
+
+    override fun undo(token: Any?, h: History) {
+        val t = token as? Tok ?: return
+        for (o in t.keys.indices) {
+            val k = t.keys[o]
+            if (t.created[o]) { table.remove(k); continue }   // bu adımda oluşmuş anahtar
+            val c = table[k] ?: continue
+            c[t.s] = t.pre[o]
+        }
     }
 }
 
@@ -149,6 +205,7 @@ class FreqGapMember : Member {
     }
 
     override fun update(h: History) {
+        tok = Tok(hits.copyOf(), trials.copyOf(), freq.copyOf(), lastSeen.copyOf())
         val a = h.last(); val size = h.size - 1
         for (v in 0 until K) {
             val b = bucket(gap(v, size))
@@ -156,6 +213,17 @@ class FreqGapMember : Member {
         }
         for (v in 0 until K) freq[v] = freq[v] * lambda + if (v == a) 1.0 else 0.0
         lastSeen[a] = size
+    }
+
+    // ---- geri alma: tüm durum küçük diziler, tam kopya yeterli ----
+    override val undoable = true
+    private class Tok(val hits: DoubleArray, val trials: DoubleArray, val freq: DoubleArray, val lastSeen: IntArray)
+    private var tok: Tok? = null
+    override fun undoToken(): Any? = tok
+
+    override fun undo(token: Any?, h: History) {
+        val t = token as? Tok ?: return
+        t.hits.copyInto(hits); t.trials.copyInto(trials); t.freq.copyInto(freq); t.lastSeen.copyInto(lastSeen)
     }
 }
 
@@ -191,12 +259,27 @@ class StreakWaveMember : Member {
     }
 
     override fun update(h: History) {
+        tok = Tok(copy2(rep), copy2(parC), copy2(bigC))
         val end = h.size - 1
         if (end < 2) return
         val s = state(h, end); val a = h.last(); val last = h[end - 1]
         rep[b(s.run)][1]++; if (a == last) rep[b(s.run)][0]++
         parC[b(s.pr) * 6 + b(s.pa)].let { it[1]++; if (par(a) == par(last)) it[0]++ }
         bigC[b(s.br) * 6 + b(s.ba)].let { it[1]++; if (big(a) == big(last)) it[0]++ }
+    }
+
+    // ---- geri alma: üç küçük tablonun tam kopyası ----
+    override val undoable = true
+    private class Tok(val rep: Array<DoubleArray>, val parC: Array<DoubleArray>, val bigC: Array<DoubleArray>)
+    private var tok: Tok? = null
+    override fun undoToken(): Any? = tok
+    private fun copy2(a: Array<DoubleArray>) = Array(a.size) { i -> a[i].copyOf() }
+
+    override fun undo(token: Any?, h: History) {
+        val t = token as? Tok ?: return
+        for (i in rep.indices) t.rep[i].copyInto(rep[i])
+        for (i in parC.indices) t.parC[i].copyInto(parC[i])
+        for (i in bigC.indices) t.bigC[i].copyInto(bigC[i])
     }
 }
 
@@ -229,12 +312,25 @@ class RegimeMember(private val win: Int = 30) : Member {
     }
 
     override fun update(h: History) {
+        tok = Tok(Array(tables.size) { r -> Array(tables[r].size) { c -> tables[r][c].copyOf() } }, current)
         val end = h.size - 1
         if (end < 1) return
         val r = regime(h, end)
         val row = tables[r][h[end - 1]]
         for (k in 0 until K) row[k] *= 0.995
         row[h.last()] += 1.0
+    }
+
+    // ---- geri alma: 9 × 4 × 4 geçiş tablosu + aktif rejim ----
+    override val undoable = true
+    private class Tok(val tables: Array<Array<DoubleArray>>, val current: Int)
+    private var tok: Tok? = null
+    override fun undoToken(): Any? = tok
+
+    override fun undo(token: Any?, h: History) {
+        val t = token as? Tok ?: return
+        for (r in tables.indices) for (c in tables[r].indices) t.tables[r][c].copyInto(tables[r][c])
+        current = t.current
     }
 
     override fun info() = mapOf("regime" to names[current])

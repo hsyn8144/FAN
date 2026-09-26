@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import fan.superai.EngineHost
 import fan.superai.overlay.OverlayService
+import fan.superai.recentWithEcho
 
 @Composable
 fun HomeScreen(onOverlay: () -> Unit) {
@@ -38,6 +39,8 @@ fun HomeScreen(onOverlay: () -> Unit) {
     val disc by EngineHost.discovery.collectAsState()
     val pyErr by EngineHost.pyError.collectAsState()
     val running by OverlayService.running.collectAsState()
+    val echo by EngineHost.echo.collectAsState()
+    val pending by EngineHost.pending.collectAsState()
 
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(12.dp)) {
         Row(Modifier.fillMaxWidth().padding(bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -98,9 +101,10 @@ fun HomeScreen(onOverlay: () -> Unit) {
             row("Yan (ikisi birden)", sc?.sideBoth, 25)
         }
 
-        FCard("Veri") {
-            KV("Kayıt", "${st?.count ?: 0}")
-            KV("Son 6", st?.recent?.joinToString("  ") ?: "-", mono = true)
+        FCard(if (pending > 0) "Veri · ⏳ $pending işlem sırada" else "Veri") {
+            KV("Kayıt", "${(st?.count ?: 0) + echo.values.size}")
+            // Düğmeye basıldığı anda görünür (echo), motor sonucu gelince gerçek değerle değişir.
+            KV("Son 6", recentWithEcho(st, echo).joinToString("  ").ifEmpty { "-" }, mono = true)
             KV("🔍 Keşif özeti", disc?.let { if (it.lag2Watch) "gecikme-2 takipte" else it.verdict.take(28) } ?: "-", vColor = C.orange, bold = false)
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 NumButton("1", C.b1) { EngineHost.add(1) }
@@ -109,6 +113,7 @@ fun HomeScreen(onOverlay: () -> Unit) {
                 NumButton("4", C.b4) { EngineHost.add(4) }
             }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp)) { NumButton("⌫ Geri al", C.del, 15) { EngineHost.undo() } }
+            Muted("Sayı düğmeleri anında işlenir; ⌫ son girişi veriyi bozmadan geri alır.", Modifier.padding(top = 6.dp))
         }
     }
 }

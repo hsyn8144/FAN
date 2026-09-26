@@ -15,8 +15,12 @@ interface ExternalCouncil {
     fun replay(values: IntArray, times: LongArray): Pair<List<DoubleArray>, DoubleArray>
     /** Yeni kaydı öğrenir, bir sonraki tahmini döndürür. */
     fun step(value: Int, time: Long): DoubleArray
-    /** Son kaydı geri alır; başarısızsa null. */
-    fun undo(): DoubleArray?
+    /**
+     * Kayıt sayısını TAM OLARAK [count]'a döndürür ve o andaki (bir sonraki) tahmini verir.
+     * Hedefe ulaşılamazsa null döner; çağıran taraf tam yeniden öğrenmeye düşer.
+     * Hedefin açıkça verilmesi iki meclisin adım adım eşitlenmesini garanti eder.
+     */
+    fun undoTo(count: Int): DoubleArray?
     fun stats(): List<MemberStat>
     fun info(): Map<String, String>
 }
@@ -64,7 +68,29 @@ class FanEngine(var cfg: EngineConfig, private var python: ExternalCouncil?) {
     private var kNext: DoubleArray = P.uniform()
     private var lastSideHit: Boolean? = null
 
+    /**
+     * Bir adımı geri almak için gereken her şey: motorun o anki görünümü (kNext/verdict/
+     * log sayısı/yan isabeti) + meclis ve hakemin adım öncesi kayıtları.
+     */
+    private class UndoRec(val count: Int, val logs: Int, val hit: Boolean?, val next: DoubleArray, val verdict: Verdict?) {
+        var council: Any? = null
+        var referee: Any? = null
+        fun attach(c: Any?, r: Any?) { council = c; referee = r }
+    }
+
+    private val undoStack = ArrayDeque<UndoRec>()
+
+    /** Anında geri alınabilecek adım sayısı (arayüz/tanılama için). */
+    val undoDepth: Int get() = undoStack.size
+    /** Son geri alma hızlı yoldan mı yapıldı? (false → tüm geçmiş baştan kuruldu) */
+    var lastUndoFast: Boolean = true; private set
+    /** Son geri alma süresi (ms). */
+    var lastUndoMs: Long = 0; private set
+
     companion object {
+        /** Kaç adımın geri alma kaydı bellekte tutulur (adım başına ~20 KB). */
+        const val UNDO_DEPTH = 64
+
         fun kotlinMembers(): List<Member> = listOf(
             KalipArama2(), CtwMember(), PpmMember(), FreqGapMember(),
             StreakWaveMember(), RegimeMember(), GruMember(), EsnMember()
@@ -72,7 +98,15 @@ class FanEngine(var cfg: EngineConfig, private var python: ExternalCouncil?) {
         val KOTLIN_IDS = listOf("kalip2", "ctw", "ppm", "freqgap", "streak", "regime", "gru", "esn")
     }
 
-    fun setPython(p: ExternalCouncil?) { python = p }
+    /**
+     * Python geri alması başarısız olduğunda Kotlin tarafı yine de anında döner; bu bayrak
+     * Python'un geride kaldığını işaretler ve bir sonraki eklemede onu yeniden öğreniriz.
+     * Böylece iki meclis asla farklı adımda kalmaz (veri bozulmaz).
+     */
+    var pyDirty = false
+        private set
+
+    fun setPython(p: ExternalCouncil?) { python = p; pyDirty = false }
     fun hasPython() = python != null
 
     private fun hist(n: Int) = History(values.toIntArray(), times.toLongArray(), n)
@@ -80,7 +114,9 @@ class FanEngine(var cfg: EngineConfig, private var python: ExternalCouncil?) {
     /** Python'u baştan öğretir (ağır). */
     fun replayPython() {
         val py = python
+        pyDirty = false
         pHist.clear()
+        undoStack.clear()   // Python geçmişi değişti: eski geri alma kayıtları geçersiz
         if (py == null) { repeat(values.size) { pHist.add(null) }; pNext = null; return }
         try {
             val (per, next) = py.replay(values.toIntArray(), times.toLongArray())
@@ -96,18 +132,32 @@ class FanEngine(var cfg: EngineConfig, private var python: ExternalCouncil?) {
         kotlin = Council("Kotlin", kotlinMembers(), cfg)
         referee = Referee(cfg)
         logs.clear(); lastSideHit = null
+        undoStack.clear()
         val vArr = values.toIntArray(); val tArr = times.toLongArray()
+        // Geri alma kayıtları yalnızca SON UNDO_DEPTH adım için tutulur (bellek sınırı).
+        val from = maxOf(0, values.size - UNDO_DEPTH)
         for (i in 0 until values.size) {
             val h = History(vArr, tArr, i)
             val pk = kotlin.predict(h)
             val pp = pHist.getOrNull(i)
             val vd = referee.decide(pk, pp)
+            val rec = if (i >= from) pushUndo(i, pk, vd) else null
             record(i, vd, pk, pp, vArr[i])
             kotlin.update(History(vArr, tArr, i + 1))
             referee.update(vArr[i])
+            rec?.attach(kotlin.undoToken(), referee.undoToken())
         }
         kNext = kotlin.predict(History(vArr, tArr, values.size))
         verdict = referee.decide(kNext, pNext)
+    }
+
+    /** [count] kayıt öğrenilmiş durumun geri alma kaydını yığına ekler. */
+    private fun pushUndo(count: Int, next: DoubleArray, verdict: Verdict?): UndoRec? {
+        if (!::kotlin.isInitialized || !kotlin.undoable) return null
+        val rec = UndoRec(count, logs.size, lastSideHit, next.copyOf(), verdict)
+        undoStack.addLast(rec)
+        while (undoStack.size > UNDO_DEPTH) undoStack.removeFirst()
+        return rec
     }
 
     private fun record(i: Int, vd: Verdict, pk: DoubleArray, pp: DoubleArray?, a: Int) {
@@ -127,29 +177,63 @@ class FanEngine(var cfg: EngineConfig, private var python: ExternalCouncil?) {
 
     /** Yeni kayıt (0..3). */
     fun add(v: Int, t: Long) {
+        // Python bir önceki geri almada eşitlenemediyse önce onu tam öğren (nadir, ama şart).
+        if (pyDirty) { replayPython(); verdict = referee.decide(kNext, pNext) }
         val vd = verdict ?: referee.decide(kNext, pNext)
         val i = values.size
+        val rec = pushUndo(i, kNext, vd)     // bu adımın geri alma kaydı
         values.add(v); times.add(t)
         pHist.add(pNext)
         record(i, vd, kNext, pNext, v)
         val vArr = values.toIntArray(); val tArr = times.toLongArray()
         kotlin.update(History(vArr, tArr, values.size))
         referee.update(v)
+        rec?.attach(kotlin.undoToken(), referee.undoToken())
         pNext = try { python?.step(v, t) } catch (e: Exception) { null }
         kNext = kotlin.predict(History(vArr, tArr, values.size))
         verdict = referee.decide(kNext, pNext)
     }
 
+    /**
+     * Son kaydı geri alır.
+     *
+     * HIZLI YOL: her adım için tutulan küçük kayıtlar sayesinde meclis, hakem ve Python
+     * meclisi tam olarak bir adım geriye sarılır → milisaniyeler.
+     * YAVAŞ YOL: kayıt yoksa (ör. [UNDO_DEPTH] adımdan derin geri alma) tüm geçmiş baştan
+     * kurulur; doğru ama ağırdır.
+     */
     fun undo(): Boolean {
         if (values.isEmpty()) return false
-        values.removeAt(values.size - 1); times.removeAt(times.size - 1)
-        if (pHist.isNotEmpty()) pHist.removeAt(pHist.size - 1)
+        val t0 = System.nanoTime()
+        val target = values.size - 1
+        // Üyelerin undo()'su bu geçmişi (geri alınan kayıt DAHİL) yeniden hesaplamak için ister.
+        val hFull = History(values.toIntArray(), times.toLongArray(), values.size)
+        val pPrev = pHist.getOrNull(target)          // silinen kayıt için yapılmış Python tahmini
         val py = python
-        if (py != null) {
-            val back = try { py.undo() } catch (e: Exception) { null }
-            if (back != null) pNext = back else replayPython()
+        val back = if (py != null) (try { py.undoTo(target) } catch (e: Exception) { null }) else null
+        val rec = undoStack.lastOrNull()?.takeIf { it.count == target && it.council != null }
+        if (rec != null && kotlin.undo(rec.council, hFull) && referee.undo(rec.referee)) {
+            undoStack.removeLast()
+            values.removeAt(target); times.removeAt(target)
+            while (pHist.size > target) pHist.removeAt(pHist.size - 1)
+            while (logs.size > rec.logs) logs.removeAt(logs.size - 1)
+            lastSideHit = rec.hit
+            kNext = rec.next.copyOf()
+            pNext = back ?: pPrev
+            // Python geri alınamadıysa hedefi kaçtı: bir sonraki eklemede yeniden öğrenilecek.
+            if (py != null && back == null) pyDirty = true
+            verdict = referee.decide(kNext, pNext)
+            lastUndoFast = true
+            lastUndoMs = (System.nanoTime() - t0) / 1_000_000L
+            return true
         }
+        // Kayıt yok ya da geri alma başarısız: tam yeniden kurma durumu baştan onarır.
+        values.removeAt(target); times.removeAt(target)
+        while (pHist.size > target) pHist.removeAt(pHist.size - 1)
+        if (py != null && back == null) replayPython()
         rebuildKotlin()
+        lastUndoFast = false
+        lastUndoMs = (System.nanoTime() - t0) / 1_000_000L
         return true
     }
 
