@@ -134,7 +134,8 @@ jobs:
           mkdir -p out
           rm -f out/FanSuper.zip
           zip -r -q out/FanSuper.zip . \
-            -x ".git/*" -x "*/build/*" -x ".gradle/*" -x "out/*" -x ".idea/*" -x "*.apk"
+            -x ".git/*" -x "*/build/*" -x ".gradle/*" -x "out/*" -x ".idea/*" \
+            -x "*.apk" -x "*.log" -x "err.txt" -x ".kotlin/*" -x "*/__pycache__/*" -x "local.properties"
           unzip -l out/FanSuper.zip | tail -3
           ls -la out
 
