@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">FAN SUPER</string>
+    <string name="overlay_channel">FAN SUPER Overlay</string>
+    <string name="overlay_running">Overlay çalışıyor</string>
+</resources>
