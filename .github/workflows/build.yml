@@ -50,6 +50,23 @@ jobs:
           set -o pipefail
           ./gradlew --no-daemon testDebugUnitTest assembleDebug 2>&1 | tee build.log
 
+      - name: Test sonuçları (annotation)
+        if: always()
+        run: |
+          python3 - <<'PYTEST'
+          import glob, os, xml.etree.ElementTree as ET
+          def escape(text):
+              return text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              for path in glob.glob('app/build/test-results/testDebugUnitTest/TEST-*.xml'):
+                  suite = ET.parse(path).getroot()
+                  summary.write('### %s\nTests: %s · Failures: %s · Errors: %s\n' % (
+                      suite.get('name'), suite.get('tests'), suite.get('failures'), suite.get('errors')))
+                  for case in suite.findall('testcase'):
+                      for failure in list(case.findall('failure')) + list(case.findall('error')):
+                          print('::error title=%s::%s' % (escape(case.get('name', 'Test')), escape((failure.text or failure.get('message', ''))[:6000])))
+          PYTEST
+
       - name: Hata özeti (annotation)
         if: failure()
         run: |
