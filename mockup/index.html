@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="tr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FAN Yeni — Mockup</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0b0f17;color:#e6edf6;font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:24px}
+h1{font-size:22px;margin-bottom:4px}.sub{color:#8a97aa;font-size:13px;margin-bottom:24px}
+h2{font-size:15px;color:#9fb3cc;margin:10px 0 12px;text-align:center}
+.row{display:flex;flex-wrap:wrap;gap:28px;justify-content:center;margin-bottom:40px}
+.phone{width:330px;height:680px;border-radius:38px;background:#111;border:10px solid #222;box-shadow:0 20px 50px #0008;overflow:hidden;position:relative;display:flex;flex-direction:column}
+.status{height:24px;font-size:11px;color:#bbb;display:flex;justify-content:space-between;padding:4px 18px;background:#0d1320}
+.scr{flex:1;overflow-y:auto;background:#0f1726;padding:12px}
+.scr::-webkit-scrollbar{width:0}
+.nav{height:56px;background:#0d1320;border-top:1px solid #1e2a3d;display:flex}
+.nav div{flex:1;text-align:center;font-size:10px;color:#6f7f96;padding-top:8px}
+.nav div b{display:block;font-size:18px;font-weight:normal}
+.nav .on{color:#64B5F6}
+.card{background:#16223a;border:1px solid #22324f;border-radius:14px;padding:12px;margin-bottom:10px}
+.ct{font-size:11px;color:#8aa3c4;text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px}
+.big{font-size:54px;font-weight:800;text-align:center;letter-spacing:2px}
+.center{text-align:center}.muted{color:#8a97aa;font-size:12px}
+.kv{display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-bottom:1px dashed #22324f}
+.kv:last-child{border:0}
+.btns{display:flex;gap:8px;margin-top:8px}
+.btns button{flex:1;height:54px;border:0;border-radius:12px;color:#fff;font-size:22px;font-weight:700}
+.b1{background:#4CAF50}.b2{background:#2196F3}.b3{background:#FF9800}.b4{background:#F44336}.bd{background:#78909C;font-size:14px!important}
+.bar{height:8px;border-radius:4px;background:#22324f;overflow:hidden;margin-top:3px}
+.bar i{display:block;height:100%}
+.tabs{display:flex;gap:6px;margin-bottom:10px}
+.tabs span{flex:1;text-align:center;font-size:12px;padding:7px 0;border-radius:9px;background:#16223a;color:#8a97aa}
+.tabs .on{background:#1565C0;color:#fff}
+table{width:100%;border-collapse:collapse;font-size:12px}
+td,th{padding:5px 3px;text-align:left}th{color:#8aa3c4;font-weight:600;font-size:11px}
+tr+tr td{border-top:1px solid #1e2a3d}
+.bench td{color:#6f7f96}
+.pill{display:inline-block;font-size:10px;padding:2px 7px;border-radius:9px;background:#22324f;color:#9fb3cc}
+.sw{width:34px;height:19px;border-radius:10px;background:#1565C0;position:relative;display:inline-block}
+.sw::after{content:"";position:absolute;right:2px;top:2px;width:15px;height:15px;border-radius:50%;background:#fff}
+.sw.off{background:#3a4658}.sw.off::after{left:2px;right:auto}
+.set{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:9px 0;border-bottom:1px solid #1e2a3d}
+.set:last-child{border:0}.set small{display:block;color:#6f7f96;font-size:10.5px}
+.val{background:#22324f;border-radius:7px;padding:3px 9px;font-size:12px;color:#cfe0f5}
+.danger{color:#ff8a80}.warn{color:#FFB74D}.ok{color:#81C784}
+.bg{background:linear-gradient(160deg,#243b55,#141e30)}
+.ov{background:rgba(21,101,192,.8);border-radius:14px;padding:8px 10px;width:170px;box-shadow:0 6px 18px #0007}
+.ovr{display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding:2px 0}
+.ovl{font-size:11px;color:#BBDEFB;width:52px}
+.ovp{font-size:17px;font-weight:800;font-family:monospace}
+.ovc{font-size:10px;color:#FFB74D;font-family:monospace;width:30px;text-align:right}
+.ovs{font-size:9px;color:#BBDEFB;text-align:center;font-family:monospace;padding:3px 0}
+.ovb{display:flex;gap:4px;margin-top:4px}
+.ovb span{flex:1;text-align:center;border-radius:7px;color:#fff;font-weight:700;font-size:13px;padding:5px 0}
+.det{border-top:1px solid #90CAF966;margin-top:4px;padding-top:4px}
+.det .ovr .ovp{font-size:12px}
+.fake{position:absolute;inset:0;padding:16px}
+.fake div{height:70px;border-radius:10px;background:#ffffff0d;margin-bottom:12px}
+</style></head><body>
+<h1>📱 FAN Yeni (com.fan.yeni) — Görsel Mockup</h1>
+<div class="sub">Tüm sayılar örnektir. Aşağı kaydır: Overlay → Ana ekran → Meclisler → Keşif → Grafik → Ayarlar. Her telefonun içi kaydırılabilir.</div>
+
+<h2 style="font-size:18px;color:#fff">1 · OVERLAY</h2>
+<div class="row">
+ <div><h2>Dikey (normal)</h2>
+ <div class="phone"><div class="status"><span>14:32</span><span>▂▄▆ 🔋</span></div>
+  <div class="scr bg" style="position:relative"><div class="fake"><div></div><div></div><div></div><div></div><div></div></div>
+   <div class="ov" style="position:absolute;right:12px;top:120px">
+    <div class="ovr"><span class="ovl">🎯 FAN</span><span class="ovp" style="color:#fff">2/3</span><span class="ovc">%34</span></div>
+    <div class="ovr"><span class="ovl">⭐ Yan</span><span class="ovp" style="color:#E1BEE7">T•K</span><span class="ovc">%61</span></div>
+    <div class="ovs">2 3 1 4 2 3</div>
+    <div class="ovb"><span style="background:#78909C;font-size:10px;padding-top:7px">DEL</span><span style="background:#F44336">4</span><span style="background:#FF9800">3</span><span style="background:#2196F3">2</span><span style="background:#4CAF50">1</span></div>
+   </div></div></div></div>
+
+ <div><h2>Dikey + detay (uzun bas)</h2>
+ <div class="phone"><div class="status"><span>14:32</span><span>▂▄▆ 🔋</span></div>
+  <div class="scr bg" style="position:relative"><div class="fake"><div></div><div></div><div></div><div></div><div></div></div>
+   <div class="ov" style="position:absolute;right:12px;top:120px">
+    <div class="ovr"><span class="ovl">🎯 FAN</span><span class="ovp" style="color:#A5D6A7">3</span><span class="ovc">%41</span></div>
+    <div class="ovr"><span class="ovl">⭐ Yan</span><span class="ovp" style="color:#81C784">T•B=</span><span class="ovc">%64</span></div>
+    <div class="det">
+     <div class="ovr"><span class="ovl">🔵 Kotlin</span><span class="ovp">3/1</span><span class="ovc">%36</span></div>
+     <div class="ovr"><span class="ovl">🐍 Python</span><span class="ovp">3</span><span class="ovc">%43</span></div>
+     <div class="ovr"><span class="ovl">⚖️ Hakem</span><span class="ovp" style="font-size:10px">🔵56 · 🐍44</span></div>
+     <div class="ovs">🏆 Kalıp2.0 · CTW · LSTM</div>
+    </div>
+    <div class="ovs">2 3 1 4 2 3</div>
+    <div class="ovb"><span style="background:#78909C;font-size:10px;padding-top:7px">DEL</span><span style="background:#F44336">4</span><span style="background:#FF9800">3</span><span style="background:#2196F3">2</span><span style="background:#4CAF50">1</span></div>
+   </div>
+   <div style="position:absolute;bottom:20px;left:0;right:0;text-align:center;font-size:11px;color:#9fb3cc">Tek tahmin = yeşil rakam · "=" = yan tahmin tuttu</div>
+  </div></div></div>
+
+ <div><h2>Yatay (kompakt)</h2>
+ <div class="phone" style="width:680px;height:330px"><div class="status"><span>14:32</span><span>▂▄▆ 🔋</span></div>
+  <div class="scr bg" style="position:relative"><div class="fake" style="display:flex;gap:12px"><div style="flex:1;height:200px"></div><div style="flex:1;height:200px"></div></div>
+   <div class="ov" style="position:absolute;left:50%;transform:translateX(-50%);top:14px;width:auto;display:flex;align-items:center;gap:10px;padding:6px 10px;white-space:nowrap">
+    <span class="ovl" style="width:auto">FAN</span><span class="ovp" style="font-size:15px">2/3</span><span class="ovc">%34</span>
+    <span style="color:#90CAF9">│</span><span class="ovl" style="width:auto">Yan</span><span class="ovp" style="font-size:14px;color:#E1BEE7">T•K</span><span class="ovc">%61</span>
+    <span style="color:#90CAF9">│</span><span class="ovs">2 3 1 4 2 3</span>
+    <div class="ovb" style="margin:0;width:150px"><span style="background:#78909C;font-size:10px">⌫</span><span style="background:#F44336">4</span><span style="background:#FF9800">3</span><span style="background:#2196F3">2</span><span style="background:#4CAF50">1</span></div>
+   </div></div></div></div>
+</div>
+
+<h2 style="font-size:18px;color:#fff">2 · UYGULAMA İÇİ EKRANLAR</h2>
+<div class="row">
+
+<div><h2>Ana ekran</h2>
+<div class="phone"><div class="status"><span>14:32</span><span>▂▄▆ 🔋</span></div>
+<div class="scr">
+ <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+  <div><b style="font-size:18px">FAN Yeni</b> <span class="pill">v1.0</span></div>
+  <span class="pill" style="background:#1565C0;color:#fff">● Overlay AÇIK</span></div>
+ <div class="card"><div class="ct">🎯 Tahmin</div>
+  <div class="big">2 / 3</div><div class="center muted">güven %34</div>
+  <div class="center" style="margin-top:8px;font-size:18px">⭐ <b style="color:#E1BEE7">T • K</b> <span class="muted">%61</span></div></div>
+ <div class="card"><div class="ct">⚖️ Baş Hakem</div>
+  <div style="display:flex;height:22px;border-radius:8px;overflow:hidden;font-size:11px;font-weight:700">
+   <div style="width:58%;background:#1976D2;display:flex;align-items:center;justify-content:center">🔵 %58</div>
+   <div style="width:42%;background:#388E3C;display:flex;align-items:center;justify-content:center">🐍 %42</div></div>
+  <div class="kv" style="margin-top:6px"><span>🔵 Kotlin Meclisi</span><b>2/1 · %33</b></div>
+  <div class="kv"><span>🐍 Python Meclisi</span><b>2/3 · %35</b></div></div>
+ <div class="card"><div class="ct">Başarı (son 100) · şans çizgisiyle</div>
+  <div class="kv"><span>Tek</span><span><b>%27</b> <span class="muted">/ şans %25</span></span></div>
+  <div class="kv"><span>Çift (ikisinden biri)</span><span><b>%52</b> <span class="muted">/ şans %50</span></span></div>
+  <div class="kv"><span>Yan (herhangi)</span><span><b>%78</b> <span class="muted">/ şans %75</span></span></div>
+  <div class="kv"><span>Yan (ikisi birden)</span><span><b>%26</b> <span class="muted">/ şans %25</span></span></div></div>
+ <div class="card"><div class="ct">Veri</div>
+  <div class="kv"><span>Kayıt</span><b>893</b></div>
+  <div class="kv"><span>Son 6</span><b style="font-family:monospace;letter-spacing:3px">2 3 1 4 2 3</b></div>
+  <div class="kv"><span>🔍 Keşif özeti</span><span class="warn">gecikme-2 takipte</span></div>
+  <div class="btns"><button class="b1">1</button><button class="b2">2</button><button class="b3">3</button><button class="b4">4</button></div>
+  <div class="btns"><button class="bd">⌫ Geri al</button></div></div>
+</div>
+<div class="nav"><div class="on"><b>🏠</b>Ana</div><div><b>🏛️</b>Meclisler</div><div><b>🔍</b>Keşif</div><div><b>📈</b>Grafik</div><div><b>⚙️</b>Ayarlar</div></div></div></div>
+
+<div><h2>Meclisler · Kotlin</h2>
+<div class="phone"><div class="status"><span>14:32</span><span>▂▄▆ 🔋</span></div>
+<div class="scr">
+ <div class="tabs"><span class="on">🔵 Kotlin</span><span>🐍 Python</span><span>⭐ Yan</span></div>
+ <div class="card"><div class="ct">🔵 Kotlin Meclisi · 8 üye · Fixed-Share Hedge</div>
+ <table><tr><th>#</th><th>Üye</th><th>Tek</th><th>Çift</th><th>Ağr.</th></tr>
+ <tr><td>🥇</td><td>Kalıp Arama 2.0</td><td>%28</td><td>%53</td><td>1.72</td></tr>
+ <tr><td>🥈</td><td>CTW</td><td>%27</td><td>%52</td><td>1.51</td></tr>
+ <tr><td>🥉</td><td>PPM</td><td>%26</td><td>%51</td><td>1.33</td></tr>
+ <tr><td>4</td><td>GRU</td><td>%25</td><td>%50</td><td>1.08</td></tr>
+ <tr><td>5</td><td>Frekans / Aralık</td><td>%25</td><td>%49</td><td>0.97</td></tr>
+ <tr><td>6</td><td>Seri / Dalga</td><td>%24</td><td>%49</td><td>0.90</td></tr>
+ <tr class="bench"><td>💤</td><td>Rejim</td><td>%21</td><td>%44</td><td>0.31</td></tr>
+ <tr class="bench"><td>💤</td><td>ESN</td><td>%20</td><td>%43</td><td>0.22</td></tr></table>
+ <div class="muted" style="margin-top:6px">💤 = yedek kulübesi (oy vermiyor, formu düzelirse döner)</div></div>
+ <div class="card"><div class="ct">🎯 Aktif kalıp (Kalıp Arama 2.0)</div>
+  <div class="kv"><span>Önde olan görünüm</span><b>Küçük/Büyük</b></div>
+  <div class="kv"><span>Uzunluk</span><b>14</b></div>
+  <div class="kv"><span>Eşleşme sayısı</span><b>23</b></div>
+  <div class="kv"><span>Son değişim</span><span class="muted">37 tur önce (Delta'dan)</span></div>
+  <div style="margin-top:6px;font-size:11px" class="muted">Görünümler: Ham · Delta · Şekil · T/Ç · K/B · Ayna · Bulanık</div></div>
+ <div class="card"><div class="ct">Üye detayı (dokununca açılır)</div>
+  <div class="muted">Kalıp Arama 2.0 · son 50 tahmin</div>
+  <svg width="100%" height="60" viewBox="0 0 280 60"><line x1="0" y1="35" x2="280" y2="35" stroke="#6f7f96" stroke-dasharray="4"/><polyline fill="none" stroke="#64B5F6" stroke-width="2" points="0,40 20,36 40,30 60,33 80,28 100,31 120,25 140,29 160,34 180,27 200,24 220,30 240,26 260,28 280,25"/><text x="230" y="48" fill="#6f7f96" font-size="9">şans %25</text></svg></div>
+</div>
+<div class="nav"><div><b>🏠</b>Ana</div><div class="on"><b>🏛️</b>Meclisler</div><div><b>🔍</b>Keşif</div><div><b>📈</b>Grafik</div><div><b>⚙️</b>Ayarlar</div></div></div></div>
+
+<div><h2>Meclisler · Python</h2>
+<div class="phone"><div class="status"><span>14:32</span><span>▂▄▆ 🔋</span></div>
+<div class="scr">
+ <div class="tabs"><span>🔵 Kotlin</span><span class="on">🐍 Python</span><span>⭐ Yan</span></div>
+ <div class="card"><div class="ct">🐍 Python Meclisi · 10 üye · gömülü (Chaquopy)</div>
+ <table><tr><th>#</th><th>Üye</th><th>Tek</th><th>Çift</th><th>Ağr.</th></tr>
+ <tr><td>🥇</td><td>LSTM</td><td>%28</td><td>%52</td><td>1.64</td></tr>
+ <tr><td>🥈</td><td>kNN-DTW</td><td>%27</td><td>%52</td><td>1.47</td></tr>
+ <tr><td>🥉</td><td>Kalıp 2.0 bulanık</td><td>%26</td><td>%51</td><td>1.30</td></tr>
+ <tr><td>4</td><td>Transformer</td><td>%26</td><td>%50</td><td>1.18</td></tr>
+ <tr><td>5</td><td>Spektral/BOCPD</td><td>%25</td><td>%50</td><td>1.02</td></tr>
+ <tr><td>6</td><td>Gradient Boost</td><td>%25</td><td>%50</td><td>0.99</td></tr>
+ <tr><td>7</td><td>Bağlam modeli</td><td>%25</td><td>%49</td><td>0.94</td></tr>
+ <tr><td>8</td><td>Motif keşfi</td><td>%24</td><td>%49</td><td>0.88</td></tr>
+ <tr class="bench"><td>💤</td><td>1D-CNN</td><td>%21</td><td>%45</td><td>0.33</td></tr>
+ <tr class="bench"><td>💤</td><td>HMM</td><td>%21</td><td>%44</td><td>0.29</td></tr></table></div>
+ <div class="card"><div class="ct">⚙️ Python motoru</div>
+  <div class="kv"><span>Durum</span><span class="ok">● çalışıyor</span></div>
+  <div class="kv"><span>Son tahmin süresi</span><b>0.42 sn</b></div>
+  <div class="kv"><span>Model kayıtlı mı</span><b>Evet (893 tur)</b></div></div>
+ <div class="card"><div class="ct">⭐ Yan meclisi (sekme önizleme)</div>
+  <div class="kv"><span>Tek/Çift uzmanı</span><b>T · %56</b></div>
+  <div class="kv"><span>Küçük/Büyük uzmanı</span><b>K · %58</b></div>
+  <div class="kv"><span>Rakamdan türetilen</span><b>2/3 → T•K</b></div></div>
+</div>
+<div class="nav"><div><b>🏠</b>Ana</div><div class="on"><b>🏛️</b>Meclisler</div><div><b>🔍</b>Keşif</div><div><b>📈</b>Grafik</div><div><b>⚙️</b>Ayarlar</div></div></div></div>
+
+<div><h2>Keşif Laboratuvarı</h2>
+<div class="phone"><div class="status"><span>14:32</span><span>▂▄▆ 🔋</span></div>
+<div class="scr">
+ <div class="card"><div class="ct">🔍 Rastgelelik testleri · 893 kayıt</div>
+  <div class="kv"><span>Dağılım (ki-kare)</span><span class="ok">✓ eşit · p=0.69</span></div>
+  <div class="kv"><span>Gecikme 1</span><span class="ok">✓ yok · p=0.62</span></div>
+  <div class="kv"><span>Gecikme 2</span><span class="warn">👀 iz · p=0.015</span></div>
+  <div class="kv"><span>Gecikme 3–5</span><span class="ok">✓ yok</span></div>
+  <div class="kv"><span>Sıkıştırma</span><span class="ok">✓ rastgele gibi</span></div>
+  <div class="kv"><span>Seri testi T/Ç · K/B</span><span class="ok">✓ normal</span></div>
+  <div class="kv"><span>Permütasyon entropisi</span><b>0.99 / 1.00</b></div></div>
+ <div class="card"><div class="ct">Periyot · Değişim · Gecikme</div>
+  <div class="kv"><span>Spektral periyot</span><span class="muted">anlamlı yok</span></div>
+  <div class="kv"><span>BOCPD değişim noktası</span><b>#512 ?</b></div>
+  <div class="kv"><span>Saat / oturum etkisi</span><span class="ok">✓ yok</span></div>
+  <div class="kv"><span>"Gecikti gelir" (hazard)</span><span class="muted">etki yok</span></div>
+  <div class="kv"><span>Hawkes / sıcak-soğuk</span><span class="muted">etki yok</span></div></div>
+ <div class="card"><div class="ct">Karşılıklı bilgi (gecikme 1–10)</div>
+  <svg width="100%" height="80" viewBox="0 0 280 80">
+   <line x1="0" y1="45" x2="280" y2="45" stroke="#6f7f96" stroke-dasharray="3"/>
+   <g fill="#64B5F6"><rect x="5" y="60" width="20" height="10"/><rect x="33" y="30" width="20" height="40" fill="#FFB74D"/><rect x="61" y="52" width="20" height="18"/><rect x="89" y="58" width="20" height="12"/><rect x="117" y="49" width="20" height="21"/><rect x="145" y="61" width="20" height="9"/><rect x="173" y="57" width="20" height="13"/><rect x="201" y="62" width="20" height="8"/><rect x="229" y="56" width="20" height="14"/><rect x="257" y="60" width="20" height="10"/></g>
+   <text x="190" y="40" fill="#6f7f96" font-size="9">anlamlılık sınırı</text></svg></div>
+ <div class="card" style="border-color:#FFB74D55"><div class="ct">🧭 Karar</div>
+  <div style="font-size:13px">Güçlü düzen yok. Gecikme-2 takipte. İlgili üyelerin ağırlığı otomatik ayarlanıyor.</div>
+  <div class="btns"><button class="bd" style="font-size:13px!important;background:#1565C0">▶ Testleri yeniden çalıştır</button></div></div>
+</div>
+<div class="nav"><div><b>🏠</b>Ana</div><div><b>🏛️</b>Meclisler</div><div class="on"><b>🔍</b>Keşif</div><div><b>📈</b>Grafik</div><div><b>⚙️</b>Ayarlar</div></div></div></div>
+
+<div><h2>Grafik</h2>
+<div class="phone"><div class="status"><span>14:32</span><span>▂▄▆ 🔋</span></div>
+<div class="scr">
+ <div class="tabs"><span class="on">Tek</span><span>Çift</span><span>Yan</span></div>
+ <div class="card"><div class="ct">Kayan başarı (50'lik pencere)</div>
+  <svg width="100%" height="150" viewBox="0 0 280 150">
+   <text x="0" y="22" fill="#6f7f96" font-size="9">%35</text><text x="0" y="78" fill="#6f7f96" font-size="9">%25</text><text x="0" y="134" fill="#6f7f96" font-size="9">%15</text>
+   <line x1="24" y1="75" x2="280" y2="75" stroke="#aaa" stroke-dasharray="5"/>
+   <polyline fill="none" stroke="#64B5F6" stroke-width="2" points="24,80 50,70 76,62 102,78 128,85 154,66 180,60 206,72 232,68 258,64 280,70"/>
+   <polyline fill="none" stroke="#81C784" stroke-width="2" points="24,72 50,82 76,76 102,66 128,74 154,80 180,70 206,64 232,78 258,72 280,66"/>
+   <polyline fill="none" stroke="#FFB74D" stroke-width="2.5" points="24,76 50,74 76,66 102,70 128,78 154,70 180,62 206,66 232,70 258,64 280,64"/></svg>
+  <div class="muted" style="display:flex;gap:10px;flex-wrap:wrap"><span style="color:#FFB74D">━ Hakem</span><span style="color:#64B5F6">━ Kotlin</span><span style="color:#81C784">━ Python</span><span>┄ şans</span></div></div>
+ <div class="card"><div class="ct">Sayı dağılımı</div>
+  <div class="kv"><span>1</span><span style="flex:1;margin:0 8px"><div class="bar"><i style="width:88%;background:#4CAF50"></i></div></span><b>222</b></div>
+  <div class="kv"><span>2</span><span style="flex:1;margin:0 8px"><div class="bar"><i style="width:92%;background:#2196F3"></i></div></span><b>231</b></div>
+  <div class="kv"><span>3</span><span style="flex:1;margin:0 8px"><div class="bar"><i style="width:92%;background:#FF9800"></i></div></span><b>231</b></div>
+  <div class="kv"><span>4</span><span style="flex:1;margin:0 8px"><div class="bar"><i style="width:83%;background:#F44336"></i></div></span><b>209</b></div></div>
+ <div class="card"><div class="ct">Güven kalibrasyonu</div>
+  <div class="kv"><span>%20–30 denilen</span><b>%24 tuttu</b></div>
+  <div class="kv"><span>%30–40 denilen</span><b>%33 tuttu</b></div>
+  <div class="kv"><span>%40+ denilen</span><b>%42 tuttu</b></div>
+  <div class="muted" style="margin-top:4px">Kalibrasyon sonrası: yazan yüzde ≈ gerçek başarı</div></div>
+</div>
+<div class="nav"><div><b>🏠</b>Ana</div><div><b>🏛️</b>Meclisler</div><div><b>🔍</b>Keşif</div><div class="on"><b>📈</b>Grafik</div><div><b>⚙️</b>Ayarlar</div></div></div></div>
+
+<div><h2>Ayarlar (kaydır)</h2>
+<div class="phone"><div class="status"><span>14:32</span><span>▂▄▆ 🔋</span></div>
+<div class="scr">
+ <div class="card"><div class="ct">🎯 Tahmin</div>
+  <div class="set"><span>Çift tahmin kararı<small>Konformal: gerekince 2 rakam</small></span><span class="val">Otomatik ▾</span></div>
+  <div class="set"><span>İlk sessiz tur<small>Öğrenme başlangıcı</small></span><span class="val">50 ▾</span></div>
+  <div class="set"><span>Güven kalibrasyonu</span><span class="sw"></span></div>
+  <div class="set"><span>Yan tahmini rakamdan türet</span><span class="sw"></span></div></div>
+ <div class="card"><div class="ct">🏛️ Meclis & Yarış</div>
+  <div class="set"><span>Değerlendirme penceresi</span><span class="val">100 ▾</span></div>
+  <div class="set"><span>Yedeğe düşme eşiği</span><span class="val">%22 ▾</span></div>
+  <div class="set"><span>Ağırlık yöntemi</span><span class="val">Fixed-Share ▾</span></div>
+  <div class="set"><span>Hakem birleştirme<small>Stacking / ağırlıklı ortalama</small></span><span class="val">Stacking ▾</span></div>
+  <div class="set"><span>Eski veriyi unutma hızı</span><span class="val">Orta ▾</span></div>
+  <div class="set"><span>Üyeleri aç/kapat</span><span class="val">18 aktif ›</span></div></div>
+ <div class="card"><div class="ct">🐍 Python motoru</div>
+  <div class="set"><span>Python meclisi</span><span class="sw"></span></div>
+  <div class="set"><span>Derin öğrenme modelleri<small>LSTM · GRU · Transformer · CNN</small></span><span class="sw"></span></div>
+  <div class="set"><span>Pil tasarrufu<small>Ağır modelleri 5 turda bir eğit</small></span><span class="sw off"></span></div></div>
+ <div class="card"><div class="ct">🪟 Overlay</div>
+  <div class="set"><span>Yerleşim</span><span class="val">Dikey ▾</span></div>
+  <div class="set"><span>Uzun basınca detay paneli</span><span class="sw"></span></div>
+  <div class="set"><span>Saydamlık</span><span class="val">%80</span></div>
+  <div class="set"><span>Yazı boyutu</span><span class="val">Normal ▾</span></div>
+  <div class="set"><span>Son sayı dizisi göster</span><span class="sw"></span></div>
+  <div class="set"><span>Titreşimli buton</span><span class="sw off"></span></div></div>
+ <div class="card"><div class="ct">🔍 Keşif</div>
+  <div class="set"><span>Testleri otomatik çalıştır</span><span class="val">50 turda bir ▾</span></div>
+  <div class="set"><span>Tüm veride backtest</span><span class="val">▶ Çalıştır</span></div></div>
+ <div class="card"><div class="ct">💾 Veri</div>
+  <div class="set"><span>📥 CSV içe aktar<small>Eski FAN verisi (fan_data_live.csv)</small></span><span>›</span></div>
+  <div class="set"><span>📤 CSV dışa aktar</span><span>›</span></div>
+  <div class="set"><span>Download/FAN yedekle</span><span class="sw"></span></div>
+  <div class="set"><span class="warn">🟠 Öğrenmeyi sıfırla<small>Veri kalır, modeller sıfırlanır</small></span><span>›</span></div>
+  <div class="set"><span class="danger">🔴 Tüm veriyi sil<small>Çift onay</small></span><span>›</span></div></div>
+ <div class="card"><div class="ct">ℹ️ Hakkında</div>
+  <div class="kv"><span>Paket</span><b>com.fan.yeni</b></div>
+  <div class="kv"><span>Sürüm</span><b>1.0</b></div>
+  <div class="kv"><span>Üyeler</span><b>🔵 8 · 🐍 10</b></div></div>
+</div>
+<div class="nav"><div><b>🏠</b>Ana</div><div><b>🏛️</b>Meclisler</div><div><b>🔍</b>Keşif</div><div><b>📈</b>Grafik</div><div class="on"><b>⚙️</b>Ayarlar</div></div></div></div>
+
+</div>
+</body></html>
