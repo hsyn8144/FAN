@@ -52,16 +52,6 @@ class OverlayView(
     private val labelColor = Color.parseColor("#BBDEFB")
     private val confColor = Color.parseColor("#FFB74D")
 
-    init {
-        orientation = VERTICAL
-        background = GradientDrawable().apply {
-            cornerRadius = dp(14).toFloat()
-            setColor(Color.argb((s.overlayAlpha * 255).toInt(), 0x15, 0x65, 0xC0))
-        }
-        setPadding(dp(8), dp(6), dp(8), dp(6))
-        if (s.overlayHorizontal) buildHorizontal() else buildVertical()
-    }
-
     private fun tv(text: String, size: Float, color: Int, bold: Boolean = false, mono: Boolean = false) = TextView(context).apply {
         this.text = text; textSize = size * sc; setTextColor(color)
         typeface = if (mono) Typeface.create(Typeface.MONOSPACE, if (bold) Typeface.BOLD else Typeface.NORMAL)
@@ -83,6 +73,19 @@ class OverlayView(
             }
         }
         true
+    }
+
+    // Kotlin initializes properties and init blocks in source order. The gesture
+    // detector and listener must exist before building any of the touch targets.
+    init {
+        orientation = VERTICAL
+        background = GradientDrawable().apply {
+            cornerRadius = dp(14).toFloat()
+            setColor(Color.argb((s.overlayAlpha * 255).toInt(), 0x15, 0x65, 0xC0))
+        }
+        setPadding(dp(8), dp(6), dp(8), dp(6))
+        setOnTouchListener(dragListener)
+        if (s.overlayHorizontal) buildHorizontal() else buildVertical()
     }
 
     private fun row(label: String, main: TextView, conf: TextView): LinearLayout = LinearLayout(context).apply {

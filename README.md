@@ -25,3 +25,12 @@ Ana · Meclisler (Kotlin / Python / Yan) · 🔍 Keşif Laboratuvarı · Grafik 
 ## Derleme
 GitHub Actions (`.github/workflows/build.yml`) her push'ta APK üretir; main dalında Releases altına da koyar.
 Yerelde: JDK 17 + Python 3.11 kurulu iken `./gradlew assembleDebug`.
+
+## Overlay kullanımı ve testler
+Kartı taşımak için FAN/Yan tahmin satırını, son sayıları veya kartın boş kenarını
+basılı tutup sürükleyin (yatay ve dikey görünümde). Sayı ve DEL düğmeleri veri
+girişi için ayrılmıştır. Dikey görünümde tahmin satırına uzun basmak detayları açar.
+
+Overlay dokunma regresyon testleri: `./gradlew testDebugUnitTest`.
+GitHub Actions bu testleri APK derlemesiyle birlikte çalıştırır ve test raporlarını
+`overlay-test-reports`, kurulabilir APK'yı `FAN_SUPER_APK` artifact'ı olarak saklar.

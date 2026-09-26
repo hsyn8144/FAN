@@ -44,11 +44,30 @@ jobs:
           print("Python meclisi OK", fs.info())
           PY
 
-      - name: APK derle
+      - name: Overlay testleri ve APK derle
         run: |
           chmod +x gradlew
           set -o pipefail
-          ./gradlew --no-daemon assembleDebug 2>&1 | tee build.log
+          ./gradlew --no-daemon testDebugUnitTest assembleDebug 2>&1 | tee build.log
+
+      - name: Test sonuçları (annotation)
+        if: always()
+        run: |
+          python3 - <<'PYTEST'
+          import glob, os, xml.etree.ElementTree as ET
+          def escape(text):
+              return text.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
+              for path in glob.glob('app/build/test-results/testDebugUnitTest/TEST-*.xml'):
+                  suite = ET.parse(path).getroot()
+                  print('::notice title=Overlay test results::Tests: %s; failures: %s; errors: %s' % (
+                      suite.get('tests'), suite.get('failures'), suite.get('errors')))
+                  summary.write('### %s\nTests: %s · Failures: %s · Errors: %s\n' % (
+                      suite.get('name'), suite.get('tests'), suite.get('failures'), suite.get('errors')))
+                  for case in suite.findall('testcase'):
+                      for failure in list(case.findall('failure')) + list(case.findall('error')):
+                          print('::error title=%s::%s' % (escape(case.get('name', 'Test')), escape((failure.text or failure.get('message', ''))[:6000])))
+          PYTEST
 
       - name: Hata özeti (annotation)
         if: failure()
@@ -61,6 +80,16 @@ jobs:
               chunk='%0A'.join(l.replace('%','%25').replace('\r','') for l in lines[i:i+30])
               print('::error title=build-log-%d::%s' % (i//30, chunk))
           PY
+
+      - name: Test raporları
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: overlay-test-reports
+          path: |
+            app/build/reports/tests/
+            app/build/test-results/
+          if-no-files-found: ignore
 
       - name: APK adını düzenle
         run: |
